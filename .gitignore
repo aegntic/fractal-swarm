@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Logs
+*.log
+logs/
+swarm_trader.log
+
+# Data
+data/
+*.csv
+*.json
+*.pkl
+*.h5
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+config.ini
+secrets.yaml
+*.key
+*.pem
+
+# Redis
+dump.rdb
+
+# Model checkpoints
+*.pth
+*.ckpt
+checkpoints/
+models/*.bin
+
+# Temporary files
+*.tmp
+temp/
+tmp/
