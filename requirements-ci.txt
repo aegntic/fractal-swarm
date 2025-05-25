@@ -1,0 +1,16 @@
+# Minimal requirements for CI/CD testing
+# Core dependencies only
+
+# Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-asyncio>=0.20.0
+flake8>=6.0.0
+black>=23.0.0
+
+# Essential packages for imports
+redis==5.0.1
+aioredis==2.0.1
+python-dotenv==1.0.0
+pydantic==2.5.0
+loguru==0.7.2

@@ -1,0 +1,16 @@
+[flake8]
+max-line-length = 120
+exclude = 
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    build,
+    dist,
+    web/frontend,
+    node_modules,
+    .next
+ignore = 
+    E203,  # whitespace before ':'
+    W503,  # line break before binary operator
+    E501   # line too long (handled by black)
