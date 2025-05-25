@@ -1,75 +1,172 @@
-# 🚀 Crypto Swarm Trader: Autonomous $100 → $100K Trading System
+# 🌌 Quantum Swarm Trader
 
-## 🧠 The Most Creative & Unique Crypto Trading Strategy
+> Autonomous crypto trading system with fractal cloning technology. Grow $100 → $100K through swarm intelligence, MEV hunting, and cross-chain arbitrage.
 
-This is an autonomous swarm intelligence trading system that combines quantum-inspired computing, MEV hunting, social graph analysis, and cross-chain arbitrage to grow capital from $100 to $100,000.
+[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://python.org)
+[![Solana](https://img.shields.io/badge/Solana-Agent%20Kit-purple.svg)](https://github.com/sendaifun/solana-agent-kit)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## 🌟 Why This Strategy Wins
+## 🚀 Features
 
-### 1. **Quantum Probability Fields**
-- First trading system to use quantum superposition for parallel market analysis
-- Evaluates thousands of trading scenarios simultaneously
-- Collapses to optimal trades based on swarm consensus
+- **🤖 Solana Agent Kit Integration** - 60+ automated DeFi actions
+- **🧬 Fractal Clone System** - Self-replicating agents with behavioral mutations
+- **⚡ Multi-Chain Support** - Solana, Ethereum, and MegaETH ready
+- **📱 Mobile Dashboard** - Progressive Web App for iOS/Android
+- **🖥️ Terminal UI** - Beautiful TUI for SSH management
+- **🔄 Real-Time Updates** - WebSocket live data streaming
 
-### 2. **Multi-Chain MEV Dominance**
-- Monitors mempools across 5+ chains simultaneously
-- Executes sandwich attacks, liquidations, and failed tx opportunities
-- Uses private mempools (Flashbots) to avoid frontrunning
+## ⚡ Quick Start
 
-### 3. **Social Graph Intelligence**
-- Maps crypto Twitter/Discord influence networks
-- Detects narrative shifts 24-48 hours before mainstream
-- Tracks whale wallet social connections
+```bash
+# Clone the repository
+git clone https://github.com/your-username/quantum-swarm-trader.git
+cd quantum-swarm-trader
 
-### 4. **Swarm Agent Specialization**
+# Install dependencies
+pip install -r requirements.txt
+
+# Copy environment variables
+cp .env.example .env
+# Edit .env with your Solana private key and API keys
+
+# Run the demo
+python3 example_usage.py
+
+# Start trading (choose one)
+python3 quantum_main.py start        # Full system
+python3 ui/tui_dashboard.py          # Terminal UI only
 ```
-21 Specialized Agents:
-├── 5 Scout Agents (data collection)
-├── 3 Analyst Agents (pattern recognition)
-├── 4 Trader Agents (execution)
-├── 2 Risk Managers (portfolio protection)
-├── 3 Arbitrage Agents (cross-chain/exchange)
-├── 2 MEV Hunters (maximum extractable value)
-└── 2 Sentiment Analysts (social signals)
+
+## 🏗️ Architecture
+
+```mermaid
+graph TD
+    A[Quantum Swarm Coordinator] --> B[Solana Swarm]
+    A --> C[Ethereum Swarm]
+    B --> D[Master Agent]
+    B --> E[Clone 1: MEV Hunter]
+    B --> F[Clone 2: Arbitrage]
+    B --> G[Clone N: Liquidity]
+    
+    D --> H[Jupiter DEX]
+    E --> I[Jito MEV]
+    F --> J[Cross-DEX Arb]
+    G --> K[Raydium LP]
 ```
-## 📊 Growth Strategy Phases
 
-### Phase 1: Micro ($100 → $1,000)
-- **Timeline**: 1-7 days
-- **Focus**: High-frequency, low-risk MEV and micro-arbitrage
-- **Key**: 100+ trades per day with 0.1-0.5% profit each
-- **Risk**: Max 20% per position, 3x leverage
+## 🎯 Trading Strategy Phases
 
-### Phase 2: Growth ($1,000 → $10,000)  
-- **Timeline**: 7-30 days
-- **Focus**: Cross-exchange arbitrage, trend following
-- **Key**: Flash loan amplified trades, whale copying
-- **Risk**: Max 15% per position, 2x leverage
+### Phase 1: MICRO ($100 → $1K)
+- Jito MEV sandwich attacks
+- Jupiter aggregator arbitrage  
+- Failed transaction sniping
+- **Timeline**: 5-7 days
 
-### Phase 3: Scale ($10,000 → $100,000)
-- **Timeline**: 30-90 days
-- **Focus**: Portfolio optimization, yield strategies
-- **Key**: Market making, cross-chain bridges, early tokens
-- **Risk**: Max 10% per position, 1.5x leverage
+### Phase 2: GROWTH ($1K → $10K)
+- Cross-chain arbitrage
+- Flash loan cascading
+- Whale wallet copying
+- **Timeline**: 20-30 days
 
-## 💡 Unique Innovations
+### Phase 3: SCALE ($10K → $100K)
+- Market making on DEXs
+- Yield optimization
+- Portfolio rebalancing
+- **Timeline**: 60-90 days
 
-### 1. **Quantum Neural Networks**
-- Processes market data in superposition states
-- 10x faster pattern recognition than traditional ML
-- Adapts to market regime changes in real-time
+## 🖥️ User Interfaces
 
-### 2. **Flash Loan Cascading**
-- Chains flash loans across multiple protocols
-- Amplifies arbitrage profits without capital lock-up
-- Zero liquidation risk on borrowed funds
+### Terminal UI (TUI)
+Perfect for server management via SSH:
+```bash
+python3 ui/tui_dashboard.py
+```
 
-### 3. **Narrative Velocity Tracking**
-- Measures social sentiment acceleration
-- Identifies tokens 24-48 hours before pumps
-- Graph neural networks map influence flow
+### Web Dashboard
+Modern web interface with mobile support:
+```bash
+# Backend
+cd web/backend && uvicorn main:app
 
-### 4. **MEV Sandwich Defense**
-- Protects trades from being sandwiched
-- Uses commit-reveal schemes
-- Private mempool submission via Flashbots
+# Frontend
+cd web/frontend && npm install && npm run dev
+```
+
+Access at `http://localhost:3000` and install as PWA on mobile.
+
+## 📁 Project Structure
+
+```
+quantum-swarm-trader/
+├── quantum_main.py           # Main CLI entry point
+├── quantum_swarm_coordinator.py  # Core orchestrator
+├── solana_agent_wrapper.py   # Solana Agent Kit integration
+├── config_solana.py          # Solana configuration
+├── ui/
+│   └── tui_dashboard.py      # Terminal UI
+├── web/
+│   ├── backend/             # FastAPI backend
+│   └── frontend/            # Next.js PWA
+├── agents/                  # Trading agents
+├── strategies/              # Trading strategies
+└── docs/                    # Documentation
+```
+
+## 🔧 Configuration
+
+Edit `.env` file with your keys:
+```env
+# Solana
+SOLANA_PRIVATE_KEY=your_base58_key
+SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+
+# APIs
+OPENAI_API_KEY=your_key  # For Solana Agent Kit
+HELIUS_API_KEY=your_key  # Better RPC (optional)
+
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+```
+
+## 🛡️ Safety Features
+
+- **Stop Loss**: Automatic position closing
+- **Daily Limits**: Maximum drawdown protection
+- **Anti-Detection**: Behavioral randomization
+- **Emergency Stop**: One-click shutdown
+- **Atomic Locking**: Prevents clone collisions
+
+## 📚 Documentation
+
+- [Setup Guide](SETUP_GUIDE.md) - Detailed installation
+- [Solana Integration](README_SOLANA.md) - Solana-specific features
+- [UI Options](UI_COMPARISON.md) - Choosing the right interface
+- [Mobile Setup](MOBILE_SETUP.md) - Mobile app configuration
+- [Architecture](TECHNICAL_ARCHITECTURE.md) - System design
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing`)
+5. Open a Pull Request
+
+## ⚠️ Disclaimer
+
+This software is for educational purposes. Cryptocurrency trading carries substantial risk. Only trade with funds you can afford to lose. We are not responsible for any losses incurred.
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- [Solana Agent Kit](https://github.com/sendaifun/solana-agent-kit) - DeFi automation
+- [MegaETH](https://megaeth.com) - Real-time blockchain (coming soon)
+- [Textual](https://github.com/Textualize/textual) - Beautiful TUIs
+
+---
+
+**Built with ❤️ for the DeFi community**

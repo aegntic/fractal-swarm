@@ -1,0 +1,65 @@
+{
+  "name": "Quantum Swarm Trader",
+  "short_name": "QST",
+  "description": "Autonomous crypto trading system with fractal cloning",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#000000",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "productivity"],
+  "screenshots": [
+    {
+      "src": "/screenshot-1.png",
+      "sizes": "1170x2532",
+      "type": "image/png",
+      "label": "Dashboard Overview"
+    },
+    {
+      "src": "/screenshot-2.png",
+      "sizes": "1170x2532",
+      "type": "image/png",
+      "label": "Clone Management"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Spawn Clone",
+      "short_name": "Spawn",
+      "description": "Spawn a new trading clone",
+      "url": "/spawn",
+      "icons": [{ "src": "/icon-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "View Trades",
+      "short_name": "Trades",
+      "description": "View recent trades",
+      "url": "/trades",
+      "icons": [{ "src": "/icon-96x96.png", "sizes": "96x96" }]
+    }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
+}
