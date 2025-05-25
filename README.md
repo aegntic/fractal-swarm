@@ -5,6 +5,10 @@
 [![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://python.org)
 [![Solana](https://img.shields.io/badge/Solana-Agent%20Kit-purple.svg)](https://github.com/sendaifun/solana-agent-kit)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/aegntic/fractal-swarm)](https://github.com/aegntic/fractal-swarm)
+[![Issues](https://img.shields.io/github/issues/aegntic/fractal-swarm)](https://github.com/aegntic/fractal-swarm/issues)
+[![Forks](https://img.shields.io/github/forks/aegntic/fractal-swarm)](https://github.com/aegntic/fractal-swarm/network)
+[![Contributors](https://img.shields.io/github/contributors/aegntic/fractal-swarm)](https://github.com/aegntic/fractal-swarm/graphs/contributors)
 
 ## 🚀 Features
 
