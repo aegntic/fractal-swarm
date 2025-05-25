@@ -1,5 +1,14 @@
 # 🎯 UI Options Comparison - Which Should You Choose?
 
+## Version 1.0.0 Update (May 2025)
+
+- GitHub repository is now live at https://github.com/aegntic/fractal-swarm
+- CI/CD workflows implemented for UI testing and deployment
+- Docker support added for all UI options
+- Release v1.0.0 published with production-ready interfaces
+- Both TUI and Web PWA interfaces fully tested in production
+- Mobile PWA verified on iOS and Android devices
+
 ## Quick Decision Matrix
 
 | Your Need | Best Option | Why |

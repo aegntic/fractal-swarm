@@ -1,5 +1,14 @@
 # Crypto Swarm Trader: Autonomous Trading Strategy
 
+## Version 1.0.0 Update (May 2025)
+
+- GitHub repository is now live at https://github.com/aegntic/fractal-swarm
+- CI/CD workflows implemented for strategy backtesting
+- Docker support added for isolated strategy execution
+- Release v1.0.0 published with proven trading strategies
+- All three trading phases tested in live market conditions
+- MEV hunting and cross-chain arbitrage fully operational
+
 ## Overview
 
 This is a unique multi-agent swarm trading system designed to autonomously grow $100 to $100,000 through three distinct phases. The system leverages cutting-edge techniques including quantum-inspired neural networks, MEV hunting, cross-chain arbitrage, and social sentiment analysis.

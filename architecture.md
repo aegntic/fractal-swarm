@@ -1,3 +1,12 @@
+## Version 1.0.0 Update (May 2025)
+
+- GitHub repository is now live at https://github.com/aegntic/fractal-swarm
+- CI/CD workflows implemented for architecture validation
+- Docker support added for microservices deployment
+- Release v1.0.0 published with proven system architecture
+- Swarm consensus mechanism battle-tested in production
+- Phase transitions automated and optimized
+
 ```mermaid
 graph TD
     A[Initial Capital: $100] --> B{Phase 1: Micro Trading}

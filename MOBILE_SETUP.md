@@ -1,5 +1,14 @@
 # 📱 Quantum Swarm Trader - Mobile Setup Guide
 
+## Version 1.0.0 Update (May 2025)
+
+- GitHub repository is now live at https://github.com/aegntic/fractal-swarm
+- CI/CD workflows implemented for mobile PWA deployment
+- Docker support added for containerized mobile backend
+- Release v1.0.0 published with stable mobile interfaces
+- PWA tested on iOS 17+ and Android 12+ devices
+- Service worker optimized for offline functionality
+
 ## Quick Start
 
 ### 1. Install Dependencies

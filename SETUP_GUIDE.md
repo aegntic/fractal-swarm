@@ -1,5 +1,14 @@
 # 🚀 Quantum Swarm Trader - Setup Guide
 
+## Version 1.0.0 Update (May 2025)
+
+- GitHub repository is now live at https://github.com/aegntic/fractal-swarm
+- CI/CD workflows implemented with automated deployment scripts
+- Docker support added with docker-compose for easy setup
+- Release v1.0.0 published with comprehensive installation guides
+- Redis configuration optimized for production workloads
+- Environment variable templates updated for v1.0.0
+
 ## Overview
 
 The Quantum Swarm Trader is now enhanced with **Solana Agent Kit** integration and **MegaETH** cross-chain support. This guide will help you set up and run the system.
