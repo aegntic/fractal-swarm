@@ -96,6 +96,10 @@ dump.rdb
 *.key
 private_key.json
 wallet.json
+github_token.txt
+.github_pat
+GITHUB_PAT
+setup_github_token.sh
 
 # Data files
 data/
