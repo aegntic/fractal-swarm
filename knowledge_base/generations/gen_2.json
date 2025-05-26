@@ -1,0 +1,27 @@
+{
+  "generation_number": 2,
+  "timestamp": "2025-05-27T03:05:49.393376",
+  "population_size": 10,
+  "avg_sharpe_ratio": 0.0,
+  "best_sharpe_ratio": 0,
+  "avg_return": 0.0,
+  "best_return": 0,
+  "mutation_rate": 0.3,
+  "crossover_rate": 0.5,
+  "selection_pressure": 0.6,
+  "market_regime": "",
+  "volatility_level": "",
+  "major_events": [],
+  "strategy_ids": [
+    "0aab043e-ae91-486a-a7ba-4f49363a89d3",
+    "207ad507-85a5-42c7-a612-187ec59d8867",
+    "ffe351eb-3264-4089-9c6d-d81eb140cd4c",
+    "bbb755c2-aa2f-4e82-9ab1-f50e9c5c520d",
+    "c3c31ee8-ed07-4c0f-b1e8-b1dd4f1e8b09",
+    "7ed2d8b8-84c5-4b73-8f45-8fce74975cf1",
+    "01aa209e-8aa6-4151-93b6-69bac04e9472",
+    "6739cf13-6ce0-4225-8462-a70f15a9107d",
+    "0193ea69-f3fa-4243-a0ec-58261fe482c0",
+    "33ce7045-1d47-47e7-ad6f-50b1d8c5dde8"
+  ]
+}

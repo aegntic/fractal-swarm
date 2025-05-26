@@ -1,0 +1,31 @@
+{
+  "id": "9085d93e-5f78-4546-aa3e-6639e2b7b9d2",
+  "name": "Enhanced_MTF_Strategy_3",
+  "generation": 0,
+  "parent_ids": [],
+  "timeframe_weights": {
+    "1m": 1.356990071719397,
+    "5m": 0.8744766929033639,
+    "15m": 1.4660066477796232,
+    "1h": 0.9693613692099053,
+    "4h": 1.4268706037976193,
+    "6h": 0.43506701984185014,
+    "12h": 0.22382703004758725,
+    "1d": 1.2455309930768095,
+    "1w": 0.930344414351307,
+    "1M": 1.249376301343207
+  },
+  "indicators": {},
+  "risk_params": {
+    "max_position_size": 0.1,
+    "max_daily_loss": 0.05,
+    "risk_per_trade": 0.02
+  },
+  "entry_conditions": {},
+  "exit_conditions": {},
+  "min_timeframe_alignment": 3,
+  "confluence_threshold": 0.7618990887689707,
+  "preferred_assets": [],
+  "asset_correlations": {},
+  "mutations": []
+}

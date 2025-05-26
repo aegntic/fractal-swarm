@@ -1,0 +1,49 @@
+{
+  "id": "b43b5416-392a-4022-a974-676fd66a1b27",
+  "name": "MTF_Strategy_G1_9",
+  "generation": 2,
+  "parent_ids": [
+    "207ad507-85a5-42c7-a612-187ec59d8867",
+    "0aab043e-ae91-486a-a7ba-4f49363a89d3"
+  ],
+  "timeframe_weights": {
+    "1m": 0.10375920424648552,
+    "5m": 0.3540067943407237,
+    "15m": 0.581836397396195,
+    "1h": 1.1127019860318401,
+    "4h": 1.2055598210579426,
+    "6h": 1.3325798082275724,
+    "12h": 0.9273786166194151,
+    "1d": 1.273245715279451,
+    "1w": 0.854692967046225,
+    "1M": 1.3717801666694798
+  },
+  "indicators": {},
+  "risk_params": {},
+  "entry_conditions": {},
+  "exit_conditions": {},
+  "min_timeframe_alignment": 6,
+  "confluence_threshold": 0.8599390519287244,
+  "preferred_assets": [],
+  "asset_correlations": {},
+  "mutations": [
+    {
+      "timestamp": "2025-05-27T03:05:34.112426",
+      "type": "parameter_mutation",
+      "changes": {
+        "timeframe_weight_5m": {
+          "old": 0.3382657841206288,
+          "new": 0.3540067943407237
+        },
+        "timeframe_weight_6h": {
+          "old": 1.4899330672066724,
+          "new": 1.3325798082275724
+        },
+        "timeframe_weight_1w": {
+          "old": 1.0461348859004622,
+          "new": 0.854692967046225
+        }
+      }
+    }
+  ]
+}

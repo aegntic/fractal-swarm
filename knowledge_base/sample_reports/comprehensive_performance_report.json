@@ -1,0 +1,100 @@
+{
+  "strategy_info": {
+    "id": "strat_Momen",
+    "name": "Strategy_strat_Mo",
+    "evaluation_period": {
+      "start": "2025-04-27T22:29:29.160891",
+      "end": "2025-05-27T23:29:29.160891",
+      "days": 30
+    }
+  },
+  "capital": {
+    "initial": 10000,
+    "final": 10615.67407306581,
+    "total_growth_percentage": "6.16%",
+    "annualized_return": "106.97%"
+  },
+  "trade_statistics": {
+    "total_trades": 75,
+    "winning_trades": 48,
+    "losing_trades": 27,
+    "win_rate": "64.00%",
+    "average_return_per_trade": "0.76%",
+    "longest_winning_streak": 8,
+    "longest_losing_streak": 4,
+    "profit_factor": "3.13"
+  },
+  "dollar_pnl": {
+    "total_profit_dollars": "$904.92",
+    "total_loss_dollars": "$289.25",
+    "net_pnl": "$615.67",
+    "largest_win": "$48.76",
+    "largest_loss": "$21.17",
+    "average_win": "$18.85",
+    "average_loss": "$10.71"
+  },
+  "risk_metrics": {
+    "sharpe_ratio": "0.583",
+    "sortino_ratio": "2.484",
+    "calmar_ratio": "195.864",
+    "max_drawdown_percentage": "-0.55%",
+    "max_drawdown_dollars": "$-57.04",
+    "value_at_risk_95": "-1.11%",
+    "expected_shortfall": "-1.29%"
+  },
+  "forecasts": {
+    "expected_annual_return": "192.72%",
+    "confidence_interval_lower": "151.10%",
+    "confidence_interval_upper": "234.34%",
+    "break_even_probability": "64.00%"
+  },
+  "opportunity_cost_analysis": {
+    "btc_buy_hold_return": "10.00%",
+    "eth_buy_hold_return": "10.00%",
+    "sol_buy_hold_return": "20.00%",
+    "vs_btc": {
+      "opportunity_cost": "-3.84%",
+      "outperformed": false
+    },
+    "vs_eth": {
+      "opportunity_cost": "-3.84%",
+      "outperformed": false
+    },
+    "vs_sol": {
+      "opportunity_cost": "-13.84%",
+      "outperformed": false
+    }
+  },
+  "asset_breakdown": {
+    "RAY/USDT": {
+      "trades": 14,
+      "wins": 12,
+      "total_pnl": 204.61018639398412,
+      "win_rate": 0.8571428571428571
+    },
+    "BTC/USDT": {
+      "trades": 16,
+      "wins": 10,
+      "total_pnl": 196.88362989384186,
+      "win_rate": 0.625
+    },
+    "SOL/USDT": {
+      "trades": 19,
+      "wins": 12,
+      "total_pnl": 142.61584611829957,
+      "win_rate": 0.631578947368421
+    },
+    "SRM/USDT": {
+      "trades": 16,
+      "wins": 10,
+      "total_pnl": 47.39040945936447,
+      "win_rate": 0.625
+    },
+    "ETH/USDT": {
+      "trades": 10,
+      "wins": 4,
+      "total_pnl": 24.17400120031317,
+      "win_rate": 0.4
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "id": "ffe351eb-3264-4089-9c6d-d81eb140cd4c",
+  "name": "MTF_Strategy_2",
+  "generation": 0,
+  "parent_ids": [],
+  "timeframe_weights": {
+    "1m": 0.19946728743189746,
+    "5m": 0.177743901534703,
+    "15m": 0.2399027026288469,
+    "1h": 1.3140159477630693,
+    "4h": 0.7888306544689254,
+    "6h": 1.2481854622205264,
+    "12h": 1.1830251859395662,
+    "1d": 0.6917940103173907,
+    "1w": 0.7480222455451806,
+    "1M": 1.3480753757603248
+  },
+  "indicators": {
+    "rsi": {
+      "period": 13
+    },
+    "macd": {
+      "fast": 12,
+      "slow": 26,
+      "signal": 9
+    },
+    "bb": {
+      "period": 20,
+      "std": 2
+    }
+  },
+  "risk_params": {
+    "max_position_size": 0.1,
+    "stop_loss": 0.03224262694727332,
+    "take_profit": 0.08349976632698633
+  },
+  "entry_conditions": {},
+  "exit_conditions": {},
+  "min_timeframe_alignment": 7,
+  "confluence_threshold": 0.7757508156557059,
+  "preferred_assets": [],
+  "asset_correlations": {},
+  "mutations": []
+}
