@@ -21,6 +21,7 @@ from agents.mev_hunter import MEVHunterAgent
 from agents.social_sentiment import SocialSentimentAgent
 from strategies.cross_chain_arbitrage import CrossChainArbitrageStrategy
 from strategies.flash_loan_cascade import FlashLoanCascadeStrategy
+from ml_feedback_loop import MLFeedbackLoop
 
 
 class QuantumSwarmCoordinator:
@@ -58,6 +59,11 @@ class QuantumSwarmCoordinator:
         # Quantum decision engine state
         self.quantum_state = self._initialize_quantum_state()
         
+        # ML feedback loop
+        self.ml_feedback = MLFeedbackLoop({
+            'redis_url': f"redis://{REDIS_CONFIG['host']}:{REDIS_CONFIG['port']}/{REDIS_CONFIG['db']}"
+        })
+        
     def _initialize_quantum_state(self) -> Dict[str, Any]:
         """Initialize quantum-inspired decision engine"""
         return {
@@ -84,9 +90,13 @@ class QuantumSwarmCoordinator:
         # Initialize communication channels
         await self._setup_redis_channels()
         
+        # Initialize ML feedback loop
+        await self.ml_feedback.initialize()
+        
         # Start background tasks
         asyncio.create_task(self._monitor_clone_health())
         asyncio.create_task(self._process_swarm_messages())
+        asyncio.create_task(self.ml_feedback.start())
         
         logger.info(f"Quantum Swarm initialized with {initial_balance} SOL")
         return initial_balance
@@ -174,12 +184,29 @@ class QuantumSwarmCoordinator:
         This simulates quantum superposition by evaluating multiple
         market scenarios simultaneously
         """
+        # Get ML predictions if available
+        ml_prediction = None
+        coin_id = opportunity.get('token', opportunity.get('coin_id', ''))
+        
+        if coin_id:
+            prediction_key = f"swarm:ml:prediction:{coin_id}"
+            ml_data = await self.redis_client.get(prediction_key)
+            if ml_data:
+                ml_prediction = json.loads(ml_data)
+        
         # Create superposition of market states
         scenarios = []
         
         # Base scenario
         base_profit = opportunity.get('expected_profit', 0)
         base_risk = opportunity.get('risk_score', 0.5)
+        
+        # Adjust based on ML predictions
+        if ml_prediction:
+            confidence = ml_prediction.get('confidence_score', 0.5)
+            potential = ml_prediction.get('medium_term_potential', 0.5)
+            base_profit *= (1 + potential)
+            base_risk *= (1 - confidence * 0.5)
         
         # Generate quantum states (parallel universes)
         for i in range(10):
@@ -202,6 +229,7 @@ class QuantumSwarmCoordinator:
         self.quantum_state['collapse_history'].append({
             'opportunity_id': opportunity['id'],
             'final_score': final_score,
+            'ml_enhanced': ml_prediction is not None,
             'timestamp': datetime.now().isoformat(),
         })
         
@@ -223,17 +251,22 @@ class QuantumSwarmCoordinator:
     
     async def _execute_opportunity(self, opportunity: Dict):
         """Execute a claimed opportunity"""
+        execution_result = None
         try:
             opp_type = opportunity.get('type', 'unknown')
             
             if opp_type == 'arbitrage':
-                await self._execute_arbitrage(opportunity)
+                execution_result = await self._execute_arbitrage(opportunity)
             elif opp_type == 'mev':
-                await self._execute_mev(opportunity)
+                execution_result = await self._execute_mev(opportunity)
             elif opp_type == 'liquidity':
-                await self._execute_liquidity_provision(opportunity)
+                execution_result = await self._execute_liquidity_provision(opportunity)
             else:
                 logger.warning(f"Unknown opportunity type: {opp_type}")
+            
+            # Record experience for ML training
+            if execution_result:
+                await self._record_trading_experience(opportunity, execution_result)
                 
         except Exception as e:
             logger.error(f"Error executing opportunity: {e}")
@@ -258,6 +291,8 @@ class QuantumSwarmCoordinator:
             self.profit_tracker['winning_trades'] += 1
             
         self.profit_tracker['total_trades'] += 1
+        
+        return {'success': success, 'chain': chain, 'type': 'arbitrage'}
     
     async def _execute_mev(self, opportunity: Dict):
         """Execute MEV opportunity"""
@@ -271,7 +306,8 @@ class QuantumSwarmCoordinator:
         else:
             # Use Flashbots for Ethereum MEV
             mev_agent = MEVHunterAgent('ethereum')
-            await mev_agent.execute_opportunity(opportunity)
+            result = await mev_agent.execute_opportunity(opportunity)
+            return {'success': result, 'chain': chain, 'type': 'mev'}
     
     def _get_specialized_solana_agent(self, specialization: str) -> Optional[SolanaSwarmAgent]:
         """Get a Solana agent with specific specialization"""
@@ -290,11 +326,13 @@ class QuantumSwarmCoordinator:
         
         agent = self._get_specialized_solana_agent('raydium_liquidity')
         if agent:
-            await agent.provide_liquidity(
+            result = await agent.provide_liquidity(
                 pool,
                 Decimal(str(opportunity.get('amount_a', 0))),
                 Decimal(str(opportunity.get('amount_b', 0)))
             )
+            return {'success': result, 'chain': 'solana', 'type': 'liquidity'}
+        return {'success': False, 'chain': 'solana', 'type': 'liquidity'}
     
     async def check_phase_transition(self):
         """Check if we should transition to next trading phase"""
@@ -462,12 +500,21 @@ class QuantumSwarmCoordinator:
             
             # Update strategy weights based on performance
             await self._update_strategy_weights(winning_strategies)
+            
+            # Share intelligence with ML system
+            await self._share_swarm_intelligence(winning_strategies)
     
     async def _update_strategy_weights(self, performance_data: Dict):
         """Update strategy weights based on performance"""
-        # This would dynamically adjust strategy allocations
-        # based on what's working best in current market conditions
-        pass
+        """Update strategy weights based on performance"""
+        # Calculate normalized scores
+        total_profit = sum(data['total_profit'] for data in performance_data.values())
+        
+        if total_profit > 0:
+            for strategy, data in performance_data.items():
+                weight = data['total_profit'] / total_profit
+                # Store updated weight
+                await self.redis_client.set(f"strategy:weight:{strategy}", str(weight), expire=3600)
     
     async def get_swarm_status(self) -> Dict:
         """Get current swarm status"""
@@ -487,6 +534,10 @@ class QuantumSwarmCoordinator:
             "quantum_state": {
                 "active_superpositions": len(self.quantum_state['superposition_states']),
                 "decisions_made": len(self.quantum_state['collapse_history']),
+            },
+            "ml_feedback": {
+                "status": "active" if self.ml_feedback.is_running else "inactive",
+                "model_confidence": "high"  # Would get from actual ML metrics
             }
         }
     
@@ -523,3 +574,62 @@ class QuantumSwarmCoordinator:
             await self.redis_client.wait_closed()
         
         logger.info("Quantum Swarm shutdown complete")
+    
+    async def _record_trading_experience(self, opportunity: Dict, result: Dict):
+        """Record trading experience for ML training"""
+        try:
+            # Get market data at time of trade
+            coin_id = opportunity.get('token', opportunity.get('coin_id', ''))
+            market_signal = await self.redis_client.get(f"market:data:{coin_id}")
+            
+            experience = {
+                'market_signal': json.loads(market_signal) if market_signal else {},
+                'outcome': {
+                    'coin_id': coin_id,
+                    'entry_time': opportunity.get('timestamp', datetime.now().isoformat()),
+                    'exit_time': datetime.now().isoformat(),
+                    'entry_price': opportunity.get('price_a', 0),
+                    'exit_price': opportunity.get('price_b', 0),
+                    'position_size': opportunity.get('amount', 0),
+                    'profit_loss': opportunity.get('expected_profit', 0) if result.get('success') else -0.01,
+                    'profit_percentage': opportunity.get('expected_profit', 0) * 100 if result.get('success') else -1,
+                    'strategy_used': opportunity.get('type', 'unknown'),
+                    'clone_id': self.solana_coordinator.master_agent.agent_id
+                }
+            }
+            
+            # Store experience for ML training
+            await self.redis_client.lpush(
+                f"swarm:clone:{self.solana_coordinator.master_agent.agent_id}:experience",
+                json.dumps(experience)
+            )
+            
+            # Trim to keep only recent experiences
+            await self.redis_client.ltrim(
+                f"swarm:clone:{self.solana_coordinator.master_agent.agent_id}:experience",
+                0, 1000
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to record trading experience: {e}")
+    
+    async def _share_swarm_intelligence(self, winning_strategies: Dict):
+        """Share swarm intelligence with ML system"""
+        try:
+            intelligence_data = {
+                'timestamp': datetime.now().isoformat(),
+                'winning_strategies': winning_strategies,
+                'current_phase': self.trading_phase.value,
+                'total_capital': float(self.current_capital),
+                'clone_count': self.total_clones,
+                'quantum_decisions': len(self.quantum_state['collapse_history'])
+            }
+            
+            await self.redis_client.set(
+                "swarm:intelligence:latest",
+                json.dumps(intelligence_data),
+                expire=3600
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to share swarm intelligence: {e}")
