@@ -1,421 +1,370 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import React, { Suspense } from 'react';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
+  Activity, 
   DollarSign, 
-  TrendingUp, 
   Users, 
-  Activity,
-  AlertTriangle,
-  Zap,
-  Brain,
-  StopCircle
+  TrendingUp, 
+  Zap, 
+  Shield,
+  Globe,
+  BarChart3,
+  Settings,
+  User,
+  BookOpen,
+  Eye,
+  EyeOff
 } from 'lucide-react';
-import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { toast } from 'react-hot-toast';
-
-// API client
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
-async function fetchStatus() {
-  const res = await fetch(`${API_URL}/api/status`);
-  return res.json();
-}
-
-async function fetchClones() {
-  const res = await fetch(`${API_URL}/api/clones`);
-  return res.json();
-}
-
-async function fetchTrades() {
-  const res = await fetch(`${API_URL}/api/trades?limit=20`);
-  return res.json();
-}
-
-async function fetchPerformance() {
-  const res = await fetch(`${API_URL}/api/performance/history?period=24h`);
-  return res.json();
-}
+import SwarmVisualization from '@/components/3d/SwarmVisualization';
+import { TradingControls } from '@/components/controls/TradingControls';
+import { useTradingStore } from '@/store/trading';
+import { useConnectionStatus } from '@/hooks/useWebSocket';
+import { useState } from 'react';
 
 export default function Dashboard() {
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const queryClient = useQueryClient();
+  const { status: connectionStatus } = useConnectionStatus();
+  const { 
+    swarmStats,
+    clones,
+    positions,
+    recentTrades,
+    alerts
+  } = useTradingStore();
 
-  // Queries
-  const { data: status } = useQuery({
-    queryKey: ['status'],
-    queryFn: fetchStatus,
-    refetchInterval: 5000,
-  });
+  // Compute derived values
+  const totalCapital = swarmStats?.totalCapital || 0;
+  const totalClones = clones.size || 0;
+  const winRate = swarmStats?.successRate || 0;
+  const dailyPnL = swarmStats?.totalPnlPercentage || 0;
 
-  const { data: clones } = useQuery({
-    queryKey: ['clones'],
-    queryFn: fetchClones,
-    refetchInterval: 10000,
-  });
+  const [show3D, setShow3D] = useState(true);
 
-  const { data: trades } = useQuery({
-    queryKey: ['trades'],
-    queryFn: fetchTrades,
-    refetchInterval: 5000,
-  });
-
-  const { data: performance } = useQuery({
-    queryKey: ['performance'],
-    queryFn: fetchPerformance,
-    refetchInterval: 60000,
-  });
-
-  // WebSocket connection
-  useEffect(() => {
-    const newSocket = io(API_URL.replace('http', 'ws'), {
-      path: '/ws',
-      transports: ['websocket'],
-    });
-
-    newSocket.on('connect', () => {
-      setIsConnected(true);
-      toast.success('Connected to swarm');
-    });
-
-    newSocket.on('disconnect', () => {
-      setIsConnected(false);
-      toast.error('Disconnected from swarm');
-    });
-
-    newSocket.on('status_update', (data) => {
-      queryClient.setQueryData(['status'], data.data);
-    });
-
-    newSocket.on('new_trade', (data) => {
-      toast.success(`New trade: ${data.data.pair} +${data.data.profit}%`);
-      queryClient.invalidateQueries({ queryKey: ['trades'] });
-    });
-
-    setSocket(newSocket);
-
-    return () => {
-      newSocket.close();
-    };
-  }, [queryClient]);
-
-  const handleEmergencyStop = async () => {
-    if (confirm('Are you sure you want to emergency stop all trading?')) {
-      try {
-        const res = await fetch(`${API_URL}/api/emergency-stop`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ reason: 'Manual emergency stop', liquidate: false }),
-        });
-        
-        if (res.ok) {
-          toast.error('Emergency stop activated!');
-        }
-      } catch (error) {
-        toast.error('Failed to activate emergency stop');
-      }
+  const getConnectionStatusColor = () => {
+    switch (connectionStatus) {
+      case 'connected': return 'bg-green-500';
+      case 'connecting': return 'bg-yellow-500';
+      case 'disconnected': return 'bg-red-500';
+      default: return 'bg-gray-500';
     }
   };
 
-  const handleSpawnClone = async () => {
-    try {
-      const res = await fetch(`${API_URL}/api/clones/spawn`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ capital_allocation: 100, chain: 'solana' }),
-      });
-      
-      if (res.ok) {
-        toast.success('New clone spawned!');
-        queryClient.invalidateQueries({ queryKey: ['clones'] });
-      }
-    } catch (error) {
-      toast.error('Failed to spawn clone');
-    }
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  };
+
+  const formatPercentage = (value: number) => {
+    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white p-4">
+    <div className="min-h-screen bg-gradient-to-br from-dark-900 via-dark-800 to-dark-900 p-4 space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
+      >
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">
+          <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-neon-blue to-neon-purple bg-clip-text text-transparent">
             Quantum Swarm Trader
           </h1>
-          <p className="text-gray-400">Autonomous Trading System</p>
+          <p className="text-gray-400 mt-1">Real-time autonomous trading dashboard</p>
         </div>
-        <div className="flex gap-4">
-          <Badge variant={isConnected ? "default" : "destructive"}>
-            {isConnected ? 'Connected' : 'Disconnected'}
+        
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-full ${getConnectionStatusColor()}`} />
+            <span className="text-sm text-gray-300 capitalize">{connectionStatus}</span>
+          </div>
+          <Badge variant="outline" className="text-white border-neon-blue">
+            v1.0.0
           </Badge>
-          <Button 
-            variant="destructive" 
-            onClick={handleEmergencyStop}
-            className="flex items-center gap-2"
-          >
-            <StopCircle className="w-4 h-4" />
-            Emergency Stop
-          </Button>
         </div>
-      </div>
+      </motion.div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card className="bg-gray-800 border-gray-700">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+      >
+        <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Capital</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-400" />
+            <CardTitle className="text-sm font-medium text-gray-300">Total Capital</CardTitle>
+            <DollarSign className="h-4 w-4 text-neon-blue" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${status?.total_capital.toLocaleString() || '0'}</div>
-            <p className="text-xs text-green-400">+{status?.profit_tracker.total_profit || 0}% today</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gray-800 border-gray-700">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Clones</CardTitle>
-            <Users className="h-4 w-4 text-blue-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{status?.total_clones || 0}</div>
+            <div className="text-2xl font-bold text-white">{formatCurrency(totalCapital)}</div>
             <p className="text-xs text-gray-400">
-              SOL: {status?.solana_clones || 0} | ETH: {status?.ethereum_clones || 0}
+              <span className={`${dailyPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {formatPercentage(dailyPnL)}
+              </span> from yesterday
             </p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-800 border-gray-700">
+        <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Win Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-yellow-400" />
+            <CardTitle className="text-sm font-medium text-gray-300">Active Clones</CardTitle>
+            <Users className="h-4 w-4 text-neon-purple" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {((status?.profit_tracker.win_rate || 0) * 100).toFixed(1)}%
-            </div>
+            <div className="text-2xl font-bold text-white">{totalClones}</div>
             <p className="text-xs text-gray-400">
-              {status?.profit_tracker.total_trades || 0} trades
+              {swarmStats?.activeClones || 0} active, {(swarmStats?.totalClones || 0) - (swarmStats?.activeClones || 0)} spawning
             </p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-800 border-gray-700">
+        <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Trading Phase</CardTitle>
-            <Brain className="h-4 w-4 text-purple-400" />
+            <CardTitle className="text-sm font-medium text-gray-300">Win Rate</CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{status?.trading_phase || 'INIT'}</div>
+            <div className="text-2xl font-bold text-white">{winRate.toFixed(1)}%</div>
             <p className="text-xs text-gray-400">
-              Quantum States: {status?.quantum_state.active_superpositions || 0}
+              {recentTrades.filter(t => t.pnl && t.pnl > 0).length} / {recentTrades.length} trades
             </p>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Main Content Tabs */}
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="bg-gray-800">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="clones">Clones</TabsTrigger>
-          <TabsTrigger value="trades">Trades</TabsTrigger>
-          <TabsTrigger value="strategies">Strategies</TabsTrigger>
-        </TabsList>
+        <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-300">MEV Captured</CardTitle>
+            <Zap className="h-4 w-4 text-yellow-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-white">{formatCurrency(swarmStats?.mevCaptured || 0)}</div>
+            <p className="text-xs text-gray-400">
+              24 opportunities found
+            </p>
+          </CardContent>
+        </Card>
+      </motion.div>
 
-        <TabsContent value="overview" className="space-y-4">
-          {/* Performance Chart */}
-          <Card className="bg-gray-800 border-gray-700">
+      {/* Main Dashboard */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="grid grid-cols-1 xl:grid-cols-3 gap-6"
+      >
+        {/* 3D Visualization */}
+        <div className="xl:col-span-2">
+          <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl h-[600px]">
             <CardHeader>
-              <CardTitle>Capital Growth (24h)</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-neon-blue" />
+                  Swarm Visualization
+                </CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShow3D(!show3D)}
+                  className="border-dark-500 text-white hover:bg-dark-700"
+                >
+                  {show3D ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {show3D ? 'Hide 3D' : 'Show 3D'}
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={performance}>
-                  <defs>
-                    <linearGradient id="colorCapital" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis 
-                    dataKey="timestamp" 
-                    tickFormatter={(ts) => new Date(ts * 1000).toLocaleTimeString()}
-                    stroke="#9ca3af"
+            <CardContent className="h-[500px] p-0">
+              {show3D ? (
+                <Suspense fallback={
+                  <div className="h-full flex items-center justify-center text-gray-400">
+                    Loading 3D visualization...
+                  </div>
+                }>
+                  <SwarmVisualization 
+                    clones={[
+                      { id: 'clone-1', generation: 0, performance: 0.15, status: 'active', capital: 150, trades: 25, winRate: 0.72, strategy: 'MEV Hunter' },
+                      { id: 'clone-2', generation: 1, performance: 0.23, status: 'active', capital: 230, trades: 18, winRate: 0.83, strategy: 'Arbitrage' },
+                      { id: 'clone-3', generation: 1, performance: -0.05, status: 'inactive', capital: 95, trades: 12, winRate: 0.42, strategy: 'Grid Trading' },
+                      { id: 'clone-4', generation: 2, performance: 0.34, status: 'spawning', capital: 340, trades: 8, winRate: 0.88, strategy: 'Flash Loan' }
+                    ]}
+                    connections={[
+                      { from: 'clone-1', to: 'clone-2', strength: 0.8 },
+                      { from: 'clone-1', to: 'clone-3', strength: 0.3 },
+                      { from: 'clone-2', to: 'clone-4', strength: 0.9 }
+                    ]}
+                    trades={[]}
                   />
-                  <YAxis stroke="#9ca3af" />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151' }}
-                    labelFormatter={(ts) => new Date(ts * 1000).toLocaleString()}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="capital" 
-                    stroke="#06b6d4" 
-                    fillOpacity={1} 
-                    fill="url(#colorCapital)" 
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+                </Suspense>
+              ) : (
+                <div className="h-full flex items-center justify-center text-gray-400">
+                  3D visualization hidden
+                </div>
+              )}
             </CardContent>
           </Card>
+        </div>
 
-          {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card className="bg-gray-800 border-gray-700">
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button 
-                  onClick={handleSpawnClone}
-                  className="w-full bg-gradient-to-r from-cyan-500 to-blue-500"
-                >
-                  <Zap className="w-4 h-4 mr-2" />
-                  Spawn New Clone
-                </Button>
-                <Button variant="outline" className="w-full">
-                  Adjust Risk Parameters
-                </Button>
-                <Button variant="outline" className="w-full">
-                  Export Trade History
-                </Button>
-              </CardContent>
-            </Card>
+        {/* Trading Controls */}
+        <div>
+          <TradingControls />
+        </div>
+      </motion.div>
 
-            <Card className="bg-gray-800 border-gray-700">
-              <CardHeader>
-                <CardTitle>Recent Alerts</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Alert className="bg-blue-950 border-blue-800">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    Clone spawn threshold reached at $2,000
-                  </AlertDescription>
-                </Alert>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+      {/* Detailed Tabs */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+      >
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="grid w-full grid-cols-5 bg-dark-800/90 border border-dark-600">
+            <TabsTrigger value="overview" className="text-white data-[state=active]:bg-neon-blue/20">
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="clones" className="text-white data-[state=active]:bg-neon-blue/20">
+              <Users className="w-4 h-4 mr-2" />
+              Clones
+            </TabsTrigger>
+            <TabsTrigger value="positions" className="text-white data-[state=active]:bg-neon-blue/20">
+              <Globe className="w-4 h-4 mr-2" />
+              Positions
+            </TabsTrigger>
+            <TabsTrigger value="accounts" className="text-white data-[state=active]:bg-neon-blue/20">
+              <User className="w-4 h-4 mr-2" />
+              Accounts
+            </TabsTrigger>
+            <TabsTrigger value="help" className="text-white data-[state=active]:bg-neon-blue/20">
+              <BookOpen className="w-4 h-4 mr-2" />
+              Help
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="clones" className="space-y-4">
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <CardTitle>Active Clones</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {clones?.map((clone: any) => (
-                  <div 
-                    key={clone.id} 
-                    className="flex items-center justify-between p-3 bg-gray-900 rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-2 h-2 rounded-full ${
-                        clone.status === 'active' ? 'bg-green-400' : 'bg-yellow-400'
-                      }`} />
+          <TabsContent value="overview" className="mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl">
+                <CardHeader>
+                  <CardTitle className="text-white">Performance Metrics</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-400">24h Volume</p>
+                      <p className="text-lg font-semibold text-white">{formatCurrency(125000)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-400">Total Trades</p>
+                      <p className="text-lg font-semibold text-white">{swarmStats?.totalTrades || 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-400">Avg Trade Size</p>
+                      <p className="text-lg font-semibold text-white">{formatCurrency(2500)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-400">Risk Score</p>
+                      <p className="text-lg font-semibold text-yellow-400">35/100</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl">
+                <CardHeader>
+                  <CardTitle className="text-white">Recent Activity</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {recentTrades.slice(0, 5).map((trade, index) => (
+                    <div key={trade.id} className="flex items-center justify-between p-2 bg-dark-700/50 rounded">
                       <div>
-                        <p className="font-medium">{clone.id}</p>
-                        <p className="text-sm text-gray-400">
-                          {clone.specialization} | Gen {clone.generation}
+                        <p className="text-sm text-white">{trade.symbol}</p>
+                        <p className="text-xs text-gray-400">{trade.side} • {trade.quantity}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-sm font-semibold ${(trade.pnl || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {formatCurrency(trade.pnl || 0)}
                         </p>
+                        <p className="text-xs text-gray-400">{new Date(trade.timestamp).toLocaleTimeString()}</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium">${clone.balance.toFixed(2)}</p>
-                      <p className={`text-sm ${
-                        clone.profit > 0 ? 'text-green-400' : 'text-red-400'
-                      }`}>
-                        {clone.profit > 0 ? '+' : ''}{clone.profit.toFixed(2)}%
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
 
-        <TabsContent value="trades" className="space-y-4">
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <CardTitle>Recent Trades</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-700">
-                      <th className="text-left p-2">Time</th>
-                      <th className="text-left p-2">Pair</th>
-                      <th className="text-left p-2">Type</th>
-                      <th className="text-left p-2">Clone</th>
-                      <th className="text-right p-2">Profit</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {trades?.slice(0, 10).map((trade: any) => (
-                      <tr key={trade.id} className="border-b border-gray-800">
-                        <td className="p-2 text-sm">
-                          {new Date(trade.timestamp).toLocaleTimeString()}
-                        </td>
-                        <td className="p-2">{trade.pair}</td>
-                        <td className="p-2">
-                          <Badge variant="outline" className="text-xs">
-                            {trade.type}
-                          </Badge>
-                        </td>
-                        <td className="p-2 text-sm text-gray-400">{trade.clone_id}</td>
-                        <td className={`p-2 text-right font-medium ${
-                          trade.profit > 0 ? 'text-green-400' : 'text-red-400'
-                        }`}>
-                          {trade.profit > 0 ? '+' : ''}{trade.profit.toFixed(2)}%
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+          <TabsContent value="clones" className="mt-6">
+            <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl">
+              <CardHeader>
+                <CardTitle className="text-white">Clone Management</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-400">Clone management interface coming soon...</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        <TabsContent value="strategies" className="space-y-4">
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <CardTitle>Strategy Performance</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {['MEV Hunting', 'Cross-Chain Arbitrage', 'Liquidity Provision', 'Social Momentum'].map((strategy) => (
-                  <div key={strategy} className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>{strategy}</span>
-                      <span className="text-green-400">+{(Math.random() * 10).toFixed(2)}%</span>
-                    </div>
-                    <div className="w-full bg-gray-700 rounded-full h-2">
-                      <div 
-                        className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full"
-                        style={{ width: `${Math.random() * 100}%` }}
-                      />
-                    </div>
+          <TabsContent value="positions" className="mt-6">
+            <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl">
+              <CardHeader>
+                <CardTitle className="text-white">Active Positions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-400">Position management interface coming soon...</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="accounts" className="mt-6">
+            <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl">
+              <CardHeader>
+                <CardTitle className="text-white">Account Management</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-400">Account management interface coming soon...</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="help" className="mt-6">
+            <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl">
+              <CardHeader>
+                <CardTitle className="text-white">Getting Started</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 bg-dark-700/50 rounded-lg">
+                    <h3 className="text-lg font-semibold text-white mb-2">Quick Start</h3>
+                    <ul className="text-sm text-gray-300 space-y-1">
+                      <li>• Connect your trading accounts</li>
+                      <li>• Set your risk parameters</li>
+                      <li>• Choose initial strategies</li>
+                      <li>• Start with conservative settings</li>
+                    </ul>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                  <div className="p-4 bg-dark-700/50 rounded-lg">
+                    <h3 className="text-lg font-semibold text-white mb-2">Safety Tips</h3>
+                    <ul className="text-sm text-gray-300 space-y-1">
+                      <li>• Start with small capital amounts</li>
+                      <li>• Monitor performance regularly</li>
+                      <li>• Use emergency stop if needed</li>
+                      <li>• Keep API keys secure</li>
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </motion.div>
     </div>
   );
 }
