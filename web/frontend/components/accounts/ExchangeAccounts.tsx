@@ -172,7 +172,7 @@ export default function ExchangeAccounts() {
       </div>
 
       {/* Account Management Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs defaultValue={activeTab}>
         <div className="flex justify-between items-center mb-4">
           <TabsList>
             <TabsTrigger value="active">Active Accounts</TabsTrigger>

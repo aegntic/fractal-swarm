@@ -1,369 +1,244 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import dynamic from 'next/dynamic';
 import { 
-  Activity, 
-  DollarSign, 
-  Users, 
   TrendingUp, 
-  Zap, 
-  Shield,
-  Globe,
+  TrendingDown, 
+  Activity, 
+  DollarSign,
+  Users,
+  Zap,
   BarChart3,
-  Settings,
-  User,
-  BookOpen,
+  PieChart,
+  Layers,
   Eye,
-  EyeOff
+  Brain,
+  Trophy
 } from 'lucide-react';
-import SwarmVisualization from '@/components/3d/SwarmVisualization';
-import { TradingControls } from '@/components/controls/TradingControls';
-import { useTradingStore } from '@/store/trading';
-import { useConnectionStatus } from '@/hooks/useWebSocket';
-import { useState } from 'react';
+
+// Dynamic imports for heavy components
+const PerformanceChart = dynamic(() => import('@/components/charts/PerformanceChart'), { ssr: false });
+const VolumeChart = dynamic(() => import('@/components/charts/VolumeChart'), { ssr: false });
+const CloneDistribution = dynamic(() => import('@/components/charts/CloneDistribution'), { ssr: false });
+const MEVCapture = dynamic(() => import('@/components/charts/MEVCapture'), { ssr: false });
+const WinRateGauge = dynamic(() => import('@/components/charts/WinRateGauge'), { ssr: false });
+const ActivityFeed = dynamic(() => import('@/components/ActivityFeed'), { ssr: false });
+const MetricCard = dynamic(() => import('@/components/MetricCard'), { ssr: false });
 
 export default function Dashboard() {
-  const { status: connectionStatus } = useConnectionStatus();
-  const { 
-    swarmStats,
-    clones,
-    positions,
-    recentTrades,
-    alerts
-  } = useTradingStore();
-
-  // Compute derived values
-  const totalCapital = swarmStats?.totalCapital || 0;
-  const totalClones = clones.size || 0;
-  const winRate = swarmStats?.successRate || 0;
-  const dailyPnL = swarmStats?.totalPnlPercentage || 0;
-
-  const [show3D, setShow3D] = useState(true);
-
-  const getConnectionStatusColor = () => {
-    switch (connectionStatus) {
-      case 'connected': return 'bg-green-500';
-      case 'connecting': return 'bg-yellow-500';
-      case 'disconnected': return 'bg-red-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(amount);
-  };
-
-  const formatPercentage = (value: number) => {
-    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-dark-900 via-dark-800 to-dark-900 p-4 space-y-6">
+    <div className="min-h-screen p-4 md:p-6 lg:p-8">
       {/* Header */}
-      <motion.div
+      <motion.div 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
+        className="mb-8"
       >
-        <div>
-          <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-neon-blue to-neon-purple bg-clip-text text-transparent">
-            Quantum Swarm Trader
-          </h1>
-          <p className="text-gray-400 mt-1">Real-time autonomous trading dashboard</p>
-        </div>
+        <h1 className="text-3xl md:text-4xl font-bold gradient-text mb-2">
+          Quantum Swarm Trader
+        </h1>
+        <p className="text-gray-400">Real-time autonomous trading dashboard</p>
+      </motion.div>
+
+      {/* Main Grid Layout */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
         
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className={`w-3 h-3 rounded-full ${getConnectionStatusColor()}`} />
-            <span className="text-sm text-gray-300 capitalize">{connectionStatus}</span>
+        {/* Overall Performance - Large Card */}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.1 }}
+          className="col-span-1 md:col-span-2 lg:col-span-2 xl:col-span-2 glass-card rounded-2xl p-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-white">Overall Performance</h2>
+            <span className="text-sm text-gray-400">Last 30 days</span>
           </div>
-          <Badge variant="outline" className="text-white border-neon-blue">
-            v1.0.0
-          </Badge>
-        </div>
-      </motion.div>
+          <PerformanceChart />
+        </motion.div>
 
-      {/* Key Metrics */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
-      >
-        <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-300">Total Capital</CardTitle>
-            <DollarSign className="h-4 w-4 text-neon-blue" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-white">{formatCurrency(totalCapital)}</div>
-            <p className="text-xs text-gray-400">
-              <span className={`${dailyPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {formatPercentage(dailyPnL)}
-              </span> from yesterday
-            </p>
-          </CardContent>
-        </Card>
+        {/* Key Metrics */}
+        <MetricCard
+          title="Total Capital"
+          value="$125,432.67"
+          change="+15.3%"
+          trend="up"
+          icon={DollarSign}
+          delay={0.2}
+        />
 
-        <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-300">Active Clones</CardTitle>
-            <Users className="h-4 w-4 text-neon-purple" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-white">{totalClones}</div>
-            <p className="text-xs text-gray-400">
-              {swarmStats?.activeClones || 0} active, {(swarmStats?.totalClones || 0) - (swarmStats?.activeClones || 0)} spawning
-            </p>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="Active Clones"
+          value="27"
+          change="+3"
+          trend="up"
+          icon={Users}
+          delay={0.3}
+        />
 
-        <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-300">Win Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-white">{winRate.toFixed(1)}%</div>
-            <p className="text-xs text-gray-400">
-              {recentTrades.filter(t => t.pnl && t.pnl > 0).length} / {recentTrades.length} trades
-            </p>
-          </CardContent>
-        </Card>
+        {/* Volume Chart */}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.4 }}
+          className="col-span-1 md:col-span-2 lg:col-span-1 glass-card rounded-2xl p-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white">24h Volume</h2>
+            <BarChart3 className="w-5 h-5 text-gray-400" />
+          </div>
+          <VolumeChart />
+        </motion.div>
 
-        <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-300">MEV Captured</CardTitle>
-            <Zap className="h-4 w-4 text-yellow-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-white">{formatCurrency(swarmStats?.mevCaptured || 0)}</div>
-            <p className="text-xs text-gray-400">
-              24 opportunities found
-            </p>
-          </CardContent>
-        </Card>
-      </motion.div>
+        {/* Win Rate Gauge */}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.5 }}
+          className="col-span-1 glass-card rounded-2xl p-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white">Win Rate</h2>
+            <Trophy className="w-5 h-5 text-yellow-400" />
+          </div>
+          <WinRateGauge />
+        </motion.div>
 
-      {/* Main Dashboard */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="grid grid-cols-1 xl:grid-cols-3 gap-6"
-      >
-        {/* 3D Visualization */}
-        <div className="xl:col-span-2">
-          <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl h-[600px]">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-white flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-neon-blue" />
-                  Swarm Visualization
-                </CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShow3D(!show3D)}
-                  className="border-dark-500 text-white hover:bg-dark-700"
-                >
-                  {show3D ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  {show3D ? 'Hide 3D' : 'Show 3D'}
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="h-[500px] p-0">
-              {show3D ? (
-                <Suspense fallback={
-                  <div className="h-full flex items-center justify-center text-gray-400">
-                    Loading 3D visualization...
-                  </div>
-                }>
-                  <SwarmVisualization 
-                    clones={[
-                      { id: 'clone-1', generation: 0, performance: 0.15, status: 'active', capital: 150, trades: 25, winRate: 0.72, strategy: 'MEV Hunter' },
-                      { id: 'clone-2', generation: 1, performance: 0.23, status: 'active', capital: 230, trades: 18, winRate: 0.83, strategy: 'Arbitrage' },
-                      { id: 'clone-3', generation: 1, performance: -0.05, status: 'inactive', capital: 95, trades: 12, winRate: 0.42, strategy: 'Grid Trading' },
-                      { id: 'clone-4', generation: 2, performance: 0.34, status: 'spawning', capital: 340, trades: 8, winRate: 0.88, strategy: 'Flash Loan' }
-                    ]}
-                    connections={[
-                      { from: 'clone-1', to: 'clone-2', strength: 0.8 },
-                      { from: 'clone-1', to: 'clone-3', strength: 0.3 },
-                      { from: 'clone-2', to: 'clone-4', strength: 0.9 }
-                    ]}
-                    trades={[]}
-                  />
-                </Suspense>
-              ) : (
-                <div className="h-full flex items-center justify-center text-gray-400">
-                  3D visualization hidden
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        {/* Clone Distribution */}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.6 }}
+          className="col-span-1 glass-card rounded-2xl p-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white">Clone Distribution</h2>
+            <PieChart className="w-5 h-5 text-gray-400" />
+          </div>
+          <CloneDistribution />
+        </motion.div>
 
-        {/* Trading Controls */}
-        <div>
-          <TradingControls />
-        </div>
-      </motion.div>
+        {/* MEV Capture */}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.7 }}
+          className="col-span-1 glass-card rounded-2xl p-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white">MEV Capture</h2>
+            <Zap className="w-5 h-5 text-purple-400" />
+          </div>
+          <MEVCapture />
+        </motion.div>
 
-      {/* Detailed Tabs */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-      >
-        <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 bg-dark-800/90 border border-dark-600">
-            <TabsTrigger value="overview" className="text-white data-[state=active]:bg-neon-blue/20">
-              <BarChart3 className="w-4 h-4 mr-2" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="clones" className="text-white data-[state=active]:bg-neon-blue/20">
-              <Users className="w-4 h-4 mr-2" />
-              Clones
-            </TabsTrigger>
-            <TabsTrigger value="positions" className="text-white data-[state=active]:bg-neon-blue/20">
-              <Globe className="w-4 h-4 mr-2" />
-              Positions
-            </TabsTrigger>
-            <TabsTrigger value="accounts" className="text-white data-[state=active]:bg-neon-blue/20">
-              <User className="w-4 h-4 mr-2" />
-              Accounts
-            </TabsTrigger>
-            <TabsTrigger value="help" className="text-white data-[state=active]:bg-neon-blue/20">
-              <BookOpen className="w-4 h-4 mr-2" />
-              Help
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview" className="mt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl">
-                <CardHeader>
-                  <CardTitle className="text-white">Performance Metrics</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-400">24h Volume</p>
-                      <p className="text-lg font-semibold text-white">{formatCurrency(125000)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-400">Total Trades</p>
-                      <p className="text-lg font-semibold text-white">{swarmStats?.totalTrades || 0}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-400">Avg Trade Size</p>
-                      <p className="text-lg font-semibold text-white">{formatCurrency(2500)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-400">Risk Score</p>
-                      <p className="text-lg font-semibold text-yellow-400">35/100</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl">
-                <CardHeader>
-                  <CardTitle className="text-white">Recent Activity</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {recentTrades.slice(0, 5).map((trade, index) => (
-                    <div key={trade.id} className="flex items-center justify-between p-2 bg-dark-700/50 rounded">
-                      <div>
-                        <p className="text-sm text-white">{trade.symbol}</p>
-                        <p className="text-xs text-gray-400">{trade.side} • {trade.quantity}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className={`text-sm font-semibold ${(trade.pnl || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {formatCurrency(trade.pnl || 0)}
-                        </p>
-                        <p className="text-xs text-gray-400">{new Date(trade.timestamp).toLocaleTimeString()}</p>
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+        {/* Strategy Performance */}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.8 }}
+          className="col-span-1 md:col-span-2 lg:col-span-2 glass-card rounded-2xl p-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white">Strategy Performance</h2>
+            <Brain className="w-5 h-5 text-blue-400" />
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-neon-green">87%</div>
+              <div className="text-sm text-gray-400">Arbitrage</div>
             </div>
-          </TabsContent>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-neon-blue">72%</div>
+              <div className="text-sm text-gray-400">Trend Follow</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-neon-purple">91%</div>
+              <div className="text-sm text-gray-400">MEV Hunter</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-neon-pink">68%</div>
+              <div className="text-sm text-gray-400">Market Make</div>
+            </div>
+          </div>
+        </motion.div>
 
-          <TabsContent value="clones" className="mt-6">
-            <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl">
-              <CardHeader>
-                <CardTitle className="text-white">Clone Management</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-400">Clone management interface coming soon...</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
+        {/* Quick Stats */}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.9 }}
+          className="col-span-1 glass-card rounded-2xl p-6"
+        >
+          <h2 className="text-lg font-semibold text-white mb-4">Quick Stats</h2>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400">Avg Trade Size</span>
+              <span className="text-white font-semibold">$2,543</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400">Risk Score</span>
+              <span className="text-green-400 font-semibold">Low</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400">Daily Trades</span>
+              <span className="text-white font-semibold">342</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400">Success Rate</span>
+              <span className="text-white font-semibold">78.4%</span>
+            </div>
+          </div>
+        </motion.div>
 
-          <TabsContent value="positions" className="mt-6">
-            <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl">
-              <CardHeader>
-                <CardTitle className="text-white">Active Positions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-400">Position management interface coming soon...</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
+        {/* Activity Feed */}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 1.0 }}
+          className="col-span-1 md:col-span-2 lg:col-span-1 xl:col-span-1 glass-card rounded-2xl p-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white">Recent Activity</h2>
+            <Activity className="w-5 h-5 text-gray-400" />
+          </div>
+          <ActivityFeed />
+        </motion.div>
 
-          <TabsContent value="accounts" className="mt-6">
-            <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl">
-              <CardHeader>
-                <CardTitle className="text-white">Account Management</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-400">Account management interface coming soon...</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
+      </div>
 
-          <TabsContent value="help" className="mt-6">
-            <Card className="bg-dark-800/90 border-dark-600 backdrop-blur-xl">
-              <CardHeader>
-                <CardTitle className="text-white">Getting Started</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-dark-700/50 rounded-lg">
-                    <h3 className="text-lg font-semibold text-white mb-2">Quick Start</h3>
-                    <ul className="text-sm text-gray-300 space-y-1">
-                      <li>• Connect your trading accounts</li>
-                      <li>• Set your risk parameters</li>
-                      <li>• Choose initial strategies</li>
-                      <li>• Start with conservative settings</li>
-                    </ul>
-                  </div>
-                  <div className="p-4 bg-dark-700/50 rounded-lg">
-                    <h3 className="text-lg font-semibold text-white mb-2">Safety Tips</h3>
-                    <ul className="text-sm text-gray-300 space-y-1">
-                      <li>• Start with small capital amounts</li>
-                      <li>• Monitor performance regularly</li>
-                      <li>• Use emergency stop if needed</li>
-                      <li>• Keep API keys secure</li>
-                    </ul>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+      {/* Bottom Control Panel */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 1.1 }}
+        className="mt-8 glass-card rounded-2xl p-6"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-6">
+            <button className="px-6 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-xl transition-colors">
+              Start Trading
+            </button>
+            <button className="px-6 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 rounded-xl transition-colors">
+              Pause
+            </button>
+            <button className="px-6 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-xl transition-colors">
+              Emergency Stop
+            </button>
+          </div>
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+              <span className="text-gray-400">System Online</span>
+            </div>
+            <div className="text-gray-400">|</div>
+            <span className="text-gray-400">Latency: 12ms</span>
+            <div className="text-gray-400">|</div>
+            <span className="text-gray-400">API: Connected</span>
+          </div>
+        </div>
       </motion.div>
     </div>
   );

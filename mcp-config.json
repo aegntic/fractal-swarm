@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "tradingview": {
+      "command": "python",
+      "args": ["/home/tabs/crypto-swarm-trader/mcp_tradingview_server.py"],
+      "env": {
+        "TRADINGVIEW_USERNAME": "${TRADINGVIEW_USERNAME}",
+        "TRADINGVIEW_PASSWORD": "${TRADINGVIEW_PASSWORD}"
+      },
+      "tools": [
+        "tradingview_get_chart_data",
+        "tradingview_get_indicator",
+        "tradingview_execute_strategy",
+        "tradingview_get_watchlist"
+      ]
+    }
+  }
+}

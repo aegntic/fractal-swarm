@@ -138,7 +138,7 @@ export default function BalanceDisplay({ accounts }: BalanceDisplayProps) {
       </div>
 
       {/* View Mode Tabs */}
-      <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)}>
+      <Tabs defaultValue={viewMode}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="allocation">Asset Allocation</TabsTrigger>
           <TabsTrigger value="performance">Performance</TabsTrigger>

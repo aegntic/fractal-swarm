@@ -142,9 +142,9 @@ export function TradingControls({ className }: TradingControlsProps) {
                   </span>
                 </div>
                 <Slider
-                  value={[localSettings.riskLevel]}
-                  onValueChange={([value]) => 
-                    setLocalSettings(prev => ({ ...prev, riskLevel: value }))
+                  defaultValue={[localSettings.riskLevel]}
+                  onValueChange={(value) => 
+                    setLocalSettings(prev => ({ ...prev, riskLevel: value[0] || localSettings.riskLevel }))
                   }
                   min={10}
                   max={90}
@@ -166,9 +166,9 @@ export function TradingControls({ className }: TradingControlsProps) {
                   </span>
                 </div>
                 <Slider
-                  value={[localSettings.stopLossPercentage]}
-                  onValueChange={([value]) => 
-                    setLocalSettings(prev => ({ ...prev, stopLossPercentage: value }))
+                  defaultValue={[localSettings.stopLossPercentage]}
+                  onValueChange={(value) => 
+                    setLocalSettings(prev => ({ ...prev, stopLossPercentage: value[0] || localSettings.stopLossPercentage }))
                   }
                   min={1}
                   max={20}
@@ -185,9 +185,9 @@ export function TradingControls({ className }: TradingControlsProps) {
                   </span>
                 </div>
                 <Slider
-                  value={[localSettings.takeProfitPercentage]}
-                  onValueChange={([value]) => 
-                    setLocalSettings(prev => ({ ...prev, takeProfitPercentage: value }))
+                  defaultValue={[localSettings.takeProfitPercentage]}
+                  onValueChange={(value) => 
+                    setLocalSettings(prev => ({ ...prev, takeProfitPercentage: value[0] || localSettings.takeProfitPercentage }))
                   }
                   min={5}
                   max={100}
@@ -206,9 +206,9 @@ export function TradingControls({ className }: TradingControlsProps) {
                   </span>
                 </div>
                 <Slider
-                  value={[localSettings.capitalAllocation]}
-                  onValueChange={([value]) => 
-                    setLocalSettings(prev => ({ ...prev, capitalAllocation: value }))
+                  defaultValue={[localSettings.capitalAllocation]}
+                  onValueChange={(value) => 
+                    setLocalSettings(prev => ({ ...prev, capitalAllocation: value[0] || localSettings.capitalAllocation }))
                   }
                   min={10}
                   max={95}
@@ -230,9 +230,9 @@ export function TradingControls({ className }: TradingControlsProps) {
                   </span>
                 </div>
                 <Slider
-                  value={[localSettings.maxPositionSize]}
-                  onValueChange={([value]) => 
-                    setLocalSettings(prev => ({ ...prev, maxPositionSize: value }))
+                  defaultValue={[localSettings.maxPositionSize]}
+                  onValueChange={(value) => 
+                    setLocalSettings(prev => ({ ...prev, maxPositionSize: value[0] || localSettings.maxPositionSize }))
                   }
                   min={1}
                   max={25}

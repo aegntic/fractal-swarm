@@ -1,0 +1,28 @@
+{
+  "timestamp": "2025-05-27T05:05:39.689498",
+  "symbols_analyzed": [
+    "BTC/USDT",
+    "ETH/USDT",
+    "SOL/USDT"
+  ],
+  "data_points": 26283,
+  "strategies_tested": 5,
+  "best_return": 0.08809516111174943,
+  "correlations": {
+    "BTC/USDT": {
+      "BTC/USDT": 1.0,
+      "ETH/USDT": NaN,
+      "SOL/USDT": NaN
+    },
+    "ETH/USDT": {
+      "BTC/USDT": NaN,
+      "ETH/USDT": 1.0,
+      "SOL/USDT": NaN
+    },
+    "SOL/USDT": {
+      "BTC/USDT": NaN,
+      "ETH/USDT": NaN,
+      "SOL/USDT": 1.0
+    }
+  }
+}

@@ -1,0 +1,119 @@
+{
+  "timestamp": "2025-05-27T05:44:19.422Z",
+  "responseStatus": 200,
+  "bodyTextLength": 0,
+  "hasCanvas": false,
+  "hasDashboard": false,
+  "consoleMessages": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "location": {
+        "url": "http://localhost:3000/_next/static/css/app/layout.css?v=1748324655464"
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "location": {
+        "url": "http://localhost:3000/_next/static/media/bb3ef058b751a6ad-s.p.woff2"
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "location": {
+        "url": "http://localhost:3000/_next/static/media/a34f9d1faa5f3315-s.p.woff2"
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "location": {
+        "url": "http://localhost:3000/_next/static/chunks/app-pages-internals.js"
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "location": {
+        "url": "http://localhost:3000/_next/static/chunks/main-app.js?v=1748324655464"
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "location": {
+        "url": "http://localhost:3000/_next/static/chunks/app/layout.js"
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "location": {
+        "url": "http://localhost:3000/favicon.ico"
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "location": {
+        "url": "http://localhost:3000/favicon-16x16.png"
+      }
+    },
+    {
+      "type": "warn",
+      "text": "The resource http://localhost:3000/_next/static/media/a34f9d1faa5f3315-s.p.woff2 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.",
+      "location": {
+        "url": "http://localhost:3000/"
+      }
+    },
+    {
+      "type": "warn",
+      "text": "The resource http://localhost:3000/_next/static/media/bb3ef058b751a6ad-s.p.woff2 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.",
+      "location": {
+        "url": "http://localhost:3000/"
+      }
+    }
+  ],
+  "pageErrors": [],
+  "failedRequests": [
+    {
+      "url": "http://localhost:3000/_next/static/css/app/layout.css?v=1748324655464",
+      "failure": {
+        "errorText": "net::ERR_ABORTED"
+      }
+    },
+    {
+      "url": "http://localhost:3000/_next/static/media/bb3ef058b751a6ad-s.p.woff2",
+      "failure": {
+        "errorText": "net::ERR_ABORTED"
+      }
+    },
+    {
+      "url": "http://localhost:3000/_next/static/media/a34f9d1faa5f3315-s.p.woff2",
+      "failure": {
+        "errorText": "net::ERR_ABORTED"
+      }
+    },
+    {
+      "url": "http://localhost:3000/_next/static/chunks/app-pages-internals.js",
+      "failure": {
+        "errorText": "net::ERR_ABORTED"
+      }
+    },
+    {
+      "url": "http://localhost:3000/_next/static/chunks/main-app.js?v=1748324655464",
+      "failure": {
+        "errorText": "net::ERR_ABORTED"
+      }
+    },
+    {
+      "url": "http://localhost:3000/_next/static/chunks/app/layout.js",
+      "failure": {
+        "errorText": "net::ERR_ABORTED"
+      }
+    }
+  ],
+  "bodyPreview": ""
+}

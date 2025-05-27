@@ -145,7 +145,7 @@ export default function AccountOverview() {
       </Card>
 
       {/* Main Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs defaultValue={activeTab}>
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="wallets">Wallets</TabsTrigger>

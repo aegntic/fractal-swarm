@@ -1,0 +1,47 @@
+//@version=5
+strategy("CryptoSwarmStrategy", overlay=true, pyramiding=1)
+
+// Input parameters
+fast_length = input.int(12, "Fast EMA Length")
+slow_length = input.int(26, "Slow EMA Length")
+rsi_length = input.int(14, "RSI Length")
+rsi_oversold = input.int(30, "RSI Oversold")
+rsi_overbought = input.int(70, "RSI Overbought")
+
+// Calculate indicators
+fast_ema = ta.ema(close, fast_length)
+slow_ema = ta.ema(close, slow_length)
+rsi = ta.rsi(close, rsi_length)
+volume_sma = ta.sma(volume, 20)
+
+// Entry conditions
+long_condition = ta.crossover(fast_ema, slow_ema) and rsi < rsi_oversold and volume > volume_sma
+short_condition = ta.crossunder(fast_ema, slow_ema) and rsi > rsi_overbought and volume > volume_sma
+
+// Exit conditions
+long_exit = rsi > rsi_overbought or ta.crossunder(fast_ema, slow_ema)
+short_exit = rsi < rsi_oversold or ta.crossover(fast_ema, slow_ema)
+
+// Webhook message
+webhook_message = '{"symbol": "' + syminfo.ticker + '", "action": "{{strategy.order.action}}", "price": {{strategy.order.price}}, "timeframe": "' + timeframe.period + '", "strategy": "CryptoSwarmStrategy", "indicators": {"rsi": ' + str.tostring(rsi) + ', "volume_ratio": ' + str.tostring(volume/volume_sma) + '}}'
+
+// Strategy logic
+if (long_condition)
+    strategy.entry("Long", strategy.long, alert_message=webhook_message)
+    
+if (short_condition)
+    strategy.entry("Short", strategy.short, alert_message=webhook_message)
+    
+if (long_exit and strategy.position_size > 0)
+    strategy.close("Long", alert_message=webhook_message)
+    
+if (short_exit and strategy.position_size < 0)
+    strategy.close("Short", alert_message=webhook_message)
+
+// Plot indicators
+plot(fast_ema, color=color.blue, title="Fast EMA")
+plot(slow_ema, color=color.red, title="Slow EMA")
+
+// Plot signals
+plotshape(long_condition, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small)
+plotshape(short_condition, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small)
