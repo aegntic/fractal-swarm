@@ -101,6 +101,8 @@ def simulate_trades(df: pd.DataFrame, params: Dict) -> List[Dict]:
     entry_idx = 0
     entry_score = 0
     entry_rsi = 50
+    peak_price = 0
+    trailing_atr = params.get("trailing_stop_atr", 0)
 
     close = df["close"].values
     atr = df["atr"].values
@@ -121,6 +123,20 @@ def simulate_trades(df: pd.DataFrame, params: Dict) -> List[Dict]:
         if in_position:
             hold_hrs = i - entry_idx
             pnl_pct = (price - entry_price) / entry_price * 100
+
+            # Update peak for trailing stop
+            if price > peak_price:
+                peak_price = price
+
+            # Trailing stop: exit if price drops N ATR from peak
+            if trailing_atr > 0 and a > 0 and peak_price > entry_price:
+                trail_trigger = trailing_atr * a / entry_price * 100
+                pullback_pct = (peak_price - price) / entry_price * 100
+                if pullback_pct >= trail_trigger:
+                    trail_pnl = (peak_price - entry_price) / entry_price * 100 - trail_trigger
+                    trips.append({"pnl_pct": trail_pnl, "hold_hrs": hold_hrs, "exit": "trailing_stop"})
+                    in_position = False
+                    continue
 
             # Stop loss
             if a > 0 and pnl_pct <= -(sl_atr_mult * a / entry_price * 100):
@@ -169,6 +185,7 @@ def simulate_trades(df: pd.DataFrame, params: Dict) -> List[Dict]:
                 entry_idx = i
                 entry_score = score
                 entry_rsi = r
+                peak_price = price
 
     return trips
 

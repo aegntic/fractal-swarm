@@ -207,6 +207,19 @@ class MultiTFStrategy(TradingStrategy):
             hold_hrs = (current_time - entry_time).total_seconds() / 3600
             pnl_pct = (price - entry_price) / entry_price * 100
 
+            # Trailing stop: ratchet up from peak, exit if price drops N ATR from peak
+            trail_atr = p.get("trailing_stop_atr", 0)
+            if trail_atr > 0 and atr > 0:
+                peak = pos.get("peak_price", entry_price)
+                if price > peak:
+                    pos["peak_price"] = price
+                    peak = price
+                trail_trigger = trail_atr * atr / entry_price * 100
+                pullback_pct = (peak - price) / entry_price * 100
+                if pullback_pct >= trail_trigger and peak > entry_price:
+                    trail_pnl = (peak - entry_price) / entry_price * 100 - trail_trigger
+                    return self._sell_signal(current_time, symbol, price, "trailing_stop", score, reasons, extras, trail_pnl, hold_hrs)
+
             # Hard stop loss
             sl_atr = p.get("stop_loss_atr", 2.0)
             if atr > 0 and pnl_pct <= -(sl_atr * atr / entry_price * 100):
@@ -251,6 +264,7 @@ class MultiTFStrategy(TradingStrategy):
                 "score": score,
                 "atr": atr,
                 "entry_rsi": rsi,
+                "peak_price": price,
             }
             return TradeSignal(
                 timestamp=current_time,
@@ -397,12 +411,15 @@ async def run_sweep():
         {"signal_threshold": 0.40, "min_alignment": 3, "take_profit_atr": 4.0, "stop_loss_atr": 1.5, "max_hold_hours": 72, "time_decay_hours": 48, "label": "tight_sl_365d"},
         # wide_tp: BNB's best config
         {"signal_threshold": 0.40, "min_alignment": 3, "take_profit_atr": 6.0, "stop_loss_atr": 2.5, "max_hold_hours": 96, "time_decay_hours": 48, "label": "wide_tp_365d"},
+        # R7: Trailing stop experiments — WFA-validated trailing_stop_atr=1.0
+        {"signal_threshold": 0.40, "min_alignment": 3, "take_profit_atr": 4.0, "stop_loss_atr": 2.5, "max_hold_hours": 72, "time_decay_hours": 48, "trailing_stop_atr": 1.0, "label": "r4_winner_trail1_365d"},
+        {"signal_threshold": 0.40, "min_alignment": 3, "take_profit_atr": 4.0, "stop_loss_atr": 1.5, "max_hold_hours": 72, "time_decay_hours": 48, "trailing_stop_atr": 1.0, "label": "tight_sl_trail1_365d"},
     ]
 
     all_results = {}
 
     print(f"\n{'='*90}")
-    print(f"BACKTEST ROUND 6 — Validate best configs on 365 days of data")
+    print(f"BACKTEST ROUND 7 — Trailing stop experiments on 365 days of data")
     print(f"5 symbols × 365 days real Binance data (1h/4h/1d)")
     print(f"{'='*90}\n")
 

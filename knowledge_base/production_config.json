@@ -83,19 +83,50 @@
     "max_position_pct": 20
   },
   "backtest_history": {
-    "R2": {"description": "Broken - no position management", "portfolio_pnl": -5910},
-    "R3": {"description": "Stateful strategy, 90d data", "portfolio_pnl": -78},
-    "R4": {"description": "High entry threshold, 90d", "portfolio_pnl": -12.9},
-    "R5": {"description": "Iterating on R4 winner, 90d", "best_pnl": -0.3},
-    "R6": {"description": "365d validation - all configs positive", "best_pnl": 49.2},
-    "WFA_opt": {"description": "Walk-forward with optimization - overfitted", "result": "-1.8% OOS"},
-    "WFA_fixed": {"description": "Fixed-param WFA - 47 folds, real edge", "result": "+5.6%/window, 55% consistent"},
-    "WFA_ADX": {"description": "Fixed-param WFA + ADX regime filter", "result": "+5.9%/window, 57% consistent, -29% variance"}
+    "R2": {
+      "description": "Broken - no position management",
+      "portfolio_pnl": -5910
+    },
+    "R3": {
+      "description": "Stateful strategy, 90d data",
+      "portfolio_pnl": -78
+    },
+    "R4": {
+      "description": "High entry threshold, 90d",
+      "portfolio_pnl": -12.9
+    },
+    "R5": {
+      "description": "Iterating on R4 winner, 90d",
+      "best_pnl": -0.3
+    },
+    "R6": {
+      "description": "365d validation - all configs positive",
+      "best_pnl": 49.2
+    },
+    "WFA_opt": {
+      "description": "Walk-forward with optimization - overfitted",
+      "result": "-1.8% OOS"
+    },
+    "WFA_fixed": {
+      "description": "Fixed-param WFA - 47 folds, real edge",
+      "result": "+5.6%/window, 55% consistent"
+    },
+    "WFA_ADX": {
+      "description": "Fixed-param WFA + ADX regime filter",
+      "result": "+5.9%/window, 57% consistent, -29% variance"
+    }
   },
   "paper_trader": {
     "script": "scripts/paper_trader.py",
     "status": "ready",
-    "symbols": ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT"],
-    "adx_filter": true
+    "symbols": [
+      "BTC/USDT",
+      "ETH/USDT",
+      "SOL/USDT",
+      "BNB/USDT"
+    ],
+    "adx_filter": true,
+    "score_flip_delay_hrs": 2,
+    "trailing_stop_atr": 1.0
   }
 }

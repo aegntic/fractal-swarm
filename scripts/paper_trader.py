@@ -38,6 +38,7 @@ PRODUCTION_PARAMS = {
     "max_hold_hours": 96,
     "time_decay_hours": 48,
     "score_flip_delay_hrs": 2,
+    "trailing_stop_atr": 1.0,
 }
 
 # Drop XRP — confirmed net-negative across all WFA folds (-10.4% total)
@@ -230,6 +231,24 @@ class PaperTrader:
 
         exit_reason = None
 
+        # Trailing stop: ratchet from peak, exit if price drops N ATR from peak
+        trail_atr = PRODUCTION_PARAMS.get("trailing_stop_atr", 0)
+        if trail_atr > 0 and atr > 0:
+            peak = pos.get("peak_price", pos["entry_price"])
+            if price > peak:
+                pos["peak_price"] = price
+                peak = price
+            trail_trigger = trail_atr * atr / pos["entry_price"] * 100
+            pullback_pct = (peak - price) / pos["entry_price"] * 100
+            if pullback_pct >= trail_trigger and peak > pos["entry_price"]:
+                trail_pnl = (peak - pos["entry_price"]) / pos["entry_price"] * 100 - trail_trigger
+                return {
+                    "symbol": symbol, "pnl_pct": trail_pnl, "hold_hrs": hold_hrs,
+                    "exit_reason": "trailing_stop", "entry_price": pos["entry_price"],
+                    "exit_price": price, "entry_time": pos["entry_time"].isoformat(),
+                    "exit_time": now.isoformat(), "score": round(score, 3),
+                }
+
         # Stop loss
         if atr > 0 and pnl_pct <= -(PRODUCTION_PARAMS["stop_loss_atr"] * atr / pos["entry_price"] * 100):
             exit_reason = "stop_loss"
@@ -324,6 +343,7 @@ class PaperTrader:
                     "entry_score": score,
                     "atr": atr,
                     "entry_rsi": rsi,
+                    "peak_price": buy_price,
                 }
                 self.signals.append({
                     "time": now.isoformat(), "symbol": symbol, "action": "BUY",
