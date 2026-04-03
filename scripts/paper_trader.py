@@ -37,6 +37,7 @@ PRODUCTION_PARAMS = {
     "stop_loss_atr": 2.5,
     "max_hold_hours": 96,
     "time_decay_hours": 48,
+    "score_flip_delay_hrs": 2,
 }
 
 # Drop XRP — confirmed net-negative across all WFA folds (-10.4% total)
@@ -241,8 +242,8 @@ class PaperTrader:
         # Time decay
         elif pnl_pct < 0 and hold_hrs >= PRODUCTION_PARAMS["time_decay_hours"]:
             exit_reason = "time_decay"
-        # Score flip
-        elif score < 0:
+        # Score flip (with delay — let the trade breathe)
+        elif score < 0 and hold_hrs >= PRODUCTION_PARAMS.get("score_flip_delay_hrs", 0):
             exit_reason = "score_flip"
         # MR target
         elif rsi > 55 and pos.get("entry_rsi", 50) < 35:
