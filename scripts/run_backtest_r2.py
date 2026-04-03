@@ -228,7 +228,9 @@ class MultiTFStrategy(TradingStrategy):
                 return self._sell_signal(current_time, symbol, price, "time_decay", score, reasons, extras, pnl_pct, hold_hrs)
 
             # Asymmetric exit: close if score flips sign (we bought bullish, now bearish)
-            if score < 0:
+            # But NOT in the first N hours — let the trade breathe
+            flip_delay = p.get("score_flip_delay_hrs", 0)
+            if score < 0 and hold_hrs >= flip_delay:
                 return self._sell_signal(current_time, symbol, price, "score_flip", score, reasons, extras, pnl_pct, hold_hrs)
 
             # Mean reversion target: if RSI was oversold at entry and now reverts to mean
