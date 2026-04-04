@@ -1,0 +1,28 @@
+{
+  "version": "1.0",
+  "schedule": {
+    "fetch_fresh_data": false,
+    "max_hours_runtime": 8
+  },
+  "symbols": ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT"],
+  "wfa": {
+    "num_folds": 10,
+    "test_fold_days": 36,
+    "min_trades_per_fold": 10
+  },
+  "grid_search": {
+    "coarse": true,
+    "fine_refinement_top_n": 100,
+    "darwinian_generations": 5,
+    "darwinian_population": 50
+  },
+  "overfitting": {
+    "max_is_oos_gap": 0.5,
+    "min_oos_consistency": 0.50
+  },
+  "regime_analysis": {
+    "adx_threshold": 25.0,
+    "volatility_percentile_window": 60
+  },
+  "output_dir": "data/night_results"
+}
