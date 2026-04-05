@@ -39,7 +39,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -q pandas numpy ccxt
+          pip install -q pandas numpy ccxt pyarrow
 
       - name: Cache OHLCV data
         uses: actions/cache@v4
