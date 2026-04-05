@@ -12,9 +12,9 @@ on:
         default: 'BTC/USDT,ETH/USDT,SOL/USDT,BNB/USDT'
         required: false
       fetch_fresh_data:
-        description: 'Fetch fresh data from Binance'
+        description: 'Fetch fresh data from Binance (blocked on GitHub runners — only works locally)'
         type: boolean
-        default: true
+        default: false
       num_folds:
         description: 'Number of WFA folds'
         default: '9'
@@ -52,7 +52,7 @@ jobs:
       - name: Run Night Shift
         env:
           SYMBOLS: ${{ github.event.inputs.symbols || 'BTC/USDT,ETH/USDT,SOL/USDT,BNB/USDT' }}
-          FETCH_DATA: ${{ github.event.inputs.fetch_fresh_data || 'true' }}
+          FETCH_DATA: ${{ github.event.inputs.fetch_fresh_data || 'false' }}
           FOLDS: ${{ github.event.inputs.num_folds || '9' }}
         run: |
           ARGS="--skip-fetch"

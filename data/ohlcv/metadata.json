@@ -1,0 +1,22 @@
+{
+  "downloaded_at": "2026-04-02T01:36:29.897278",
+  "exchange": "binance",
+  "days_back": 365,
+  "datasets": {
+    "BTC/USDT_1h": 8760,
+    "BTC/USDT_4h": 2190,
+    "BTC/USDT_1d": 365,
+    "ETH/USDT_1h": 8760,
+    "ETH/USDT_4h": 2190,
+    "ETH/USDT_1d": 365,
+    "SOL/USDT_1h": 8760,
+    "SOL/USDT_4h": 2190,
+    "SOL/USDT_1d": 365,
+    "BNB/USDT_1h": 8760,
+    "BNB/USDT_4h": 2190,
+    "BNB/USDT_1d": 365,
+    "XRP/USDT_1h": 8760,
+    "XRP/USDT_4h": 2190,
+    "XRP/USDT_1d": 365
+  }
+}
