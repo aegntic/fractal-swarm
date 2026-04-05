@@ -42,23 +42,25 @@ PRODUCTION_PARAMS = {
 }
 
 # Per-symbol overrides — night shift validated configs
-# SOL: +98.41% PnL, 78% consistency, 432 trades over 324 days (full sim)
-# BTC/ETH/BNB: use production (no validated improvement yet)
+# Updated: 2026-04-06 from night shift run (9-fold WFA, full pipeline)
+# SOL: OOS Sharpe +18.68, 100% consistency, 0 overfitting, 28 trades/fold
+# BTC/ETH/BNB: production baseline underperforming — kept as learning probes
+#   to identify what the optimizer can't improve (helps build self-correction)
 SYMBOL_PARAMS = {
-    "BTC/USDT": PRODUCTION_PARAMS,
-    "ETH/USDT": PRODUCTION_PARAMS,
+    "BTC/USDT": PRODUCTION_PARAMS,  # TODO: night shift can't find edge — needs regime-aware config
+    "ETH/USDT": PRODUCTION_PARAMS,  # TODO: marginal survivor 3.04, overfitting flagged
     "SOL/USDT": {
         "signal_threshold": 0.35,
         "min_alignment": 3,
-        "take_profit_atr": 2.9537,
+        "take_profit_atr": 4.0,
         "stop_loss_atr": 1.25,
-        "max_hold_hours": 48,
-        "time_decay_hours": 28,
-        "score_flip_delay_hrs": 4,
-        "trailing_stop_atr": 0.7012,
-        "label": "night_shift_1",
+        "max_hold_hours": 36,
+        "time_decay_hours": 41,
+        "score_flip_delay_hrs": 1,
+        "trailing_stop_atr": 0.7036,
+        "label": "night_shift_2026-04-05",
     },
-    "BNB/USDT": PRODUCTION_PARAMS,
+    "BNB/USDT": PRODUCTION_PARAMS,  # TODO: highly correlated to BTC (0.90), same problem
 }
 
 # Drop XRP — confirmed net-negative across all WFA folds (-10.4% total)
@@ -432,7 +434,13 @@ class PaperTrader:
         print(f"ADX filter: > {ADX_THRESHOLD} (trending only)")
         custom = {s: p.get("label", "production") for s, p in SYMBOL_PARAMS.items() if p != PRODUCTION_PARAMS}
         print(f"Custom configs: {custom or 'none'}")
-        print(f"Params: SOL threshold=0.35 TP=2.95x SL=1.25x trail=0.70x")
+        for sym, p in SYMBOL_PARAMS.items():
+            label = p.get("label", "production")
+            tp = p.get("take_profit_atr", "?")
+            sl = p.get("stop_loss_atr", "?")
+            trail = p.get("trailing_stop_atr", "?")
+            thresh = p.get("signal_threshold", "?")
+            print(f"  {sym:12s} [{label:25s}] thresh={thresh} TP={tp} SL={sl} trail={trail}")
         print(f"{'='*60}\n")
 
         last_candles = {sym: None for sym in TRADE_SYMBOLS}
@@ -460,6 +468,15 @@ class PaperTrader:
             except KeyboardInterrupt:
                 print("\nShutting down...")
                 break
+            except ccxt.NetworkError as e:
+                print(f"Network error: {e} — retrying in 60s")
+                await asyncio.sleep(60)
+            except ccxt.RateLimitExceeded as e:
+                print(f"Rate limited: {e} — backing off 120s")
+                await asyncio.sleep(120)
+            except ccxt.ExchangeError as e:
+                print(f"Exchange error: {e} — retrying in 60s")
+                await asyncio.sleep(60)
             except Exception as e:
                 print(f"Error: {e}")
                 await asyncio.sleep(30)

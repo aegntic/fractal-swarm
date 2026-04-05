@@ -39,18 +39,18 @@ PRODUCTION_CONFIG = {
     "trailing_stop_atr": 1.0, "score_flip_delay_hrs": 2,
 }
 
-# Top candidates from night shift report 2026-04-04
+# Top candidates from night shift report 2026-04-05
 NIGHT_SHIFT_CANDIDATES = {
     "SOL/USDT": [
+        {"signal_threshold": 0.35, "take_profit_atr": 4.0, "stop_loss_atr": 1.25,
+         "max_hold_hours": 36, "time_decay_hours": 41, "min_alignment": 3,
+         "trailing_stop_atr": 0.7036, "score_flip_delay_hrs": 1, "label": "night_shift_2026-04-05_1"},
+        {"signal_threshold": 0.35, "take_profit_atr": 3.9107, "stop_loss_atr": 1.25,
+         "max_hold_hours": 48, "time_decay_hours": 36, "min_alignment": 3,
+         "trailing_stop_atr": 0.7033, "score_flip_delay_hrs": 0, "label": "night_shift_2026-04-05_2"},
         {"signal_threshold": 0.35, "take_profit_atr": 2.9537, "stop_loss_atr": 1.25,
          "max_hold_hours": 48, "time_decay_hours": 28, "min_alignment": 3,
-         "trailing_stop_atr": 0.7012, "score_flip_delay_hrs": 4, "label": "night_shift_1"},
-        {"signal_threshold": 0.2984, "take_profit_atr": 4.0, "stop_loss_atr": 1.25,
-         "max_hold_hours": 48, "time_decay_hours": 33, "min_alignment": 3,
-         "trailing_stop_atr": 0.7012, "score_flip_delay_hrs": 4, "label": "night_shift_2"},
-        {"signal_threshold": 0.2984, "take_profit_atr": 3.5615, "stop_loss_atr": 1.25,
-         "max_hold_hours": 48, "time_decay_hours": 33, "min_alignment": 3,
-         "trailing_stop_atr": 0.7012, "score_flip_delay_hrs": 4, "label": "night_shift_3"},
+         "trailing_stop_atr": 0.7012, "score_flip_delay_hrs": 4, "label": "night_shift_prev"},
     ],
     "BTC/USDT": [
         {"signal_threshold": 0.45, "take_profit_atr": 3.5, "stop_loss_atr": 1.5,
