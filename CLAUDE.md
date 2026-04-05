@@ -1,190 +1,132 @@
-# CLAUDE.md - Implementation Rules for Quantum Swarm Trader
+# CLAUDE.md
 
-## Version 1.0.0 Update (May 2025)
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-- GitHub repository is now live at https://github.com/aegntic/fractal-swarm
-- CI/CD workflows implemented with automated testing
-- Docker support added for consistent deployment environments
-- Release v1.0.0 published with battle-tested implementation patterns
-- Production deployment guidelines validated with real trading
-- Security audit completed and recommendations implemented
+## Project Overview
 
-## 🎯 PROJECT CONTEXT
-You are implementing the Quantum Swarm Trader with Fractal Clone System - an autonomous crypto trading system that self-replicates to achieve exponential growth from $100 to $100,000+. This is a PRODUCTION system with REAL money at stake.
+A crypto backtesting and paper trading system with automated overnight strategy optimization. Uses multi-timeframe confluence analysis on hourly Binance data with walk-forward validation to avoid overfitting. The production strategy (MultiTFStrategy) is validated on 365d data with 47-fold WFA.
 
-## ⚡ CORE PRINCIPLES
+**This is a research/backtesting/paper-trading project.** No real money trades. The `_archive/` and `worldmonitor/` directories are unrelated to the active system — ignore them unless explicitly asked about them.
 
-### 1. ZERO TOLERANCE FOR FAKE CODE
-- **NEVER** write placeholder functions or mock data
-- **ALWAYS** implement complete, working solutions
-- **ALWAYS** handle real API responses and edge cases
+## Commands
 
-### 2. PRODUCTION-FIRST MINDSET
-Every function must:
-- Connect to real exchanges/blockchains
-- Handle actual money transactions
-- Include comprehensive error handling
-- Log all actions for audit trail
-- Implement retry logic and fallbacks
+```bash
+# Paper trading (live Binance data, no real trades)
+python scripts/paper_trader.py
 
-### 3. SECURITY IS PARAMOUNT
-- Store private keys in environment variables
-- Use hardware security modules when possible
-- Implement rate limiting on all endpoints
-- Sanitize and validate all inputs
-- Regular security audits required
+# Night shift — overnight parameter optimization (no LLM, pure math)
+python scripts/night_shift.py                      # defaults (4 symbols, 9 folds)
+python scripts/night_shift.py --skip-fetch         # use cached data
+python scripts/night_shift.py --symbols SOL/USDT   # single symbol
 
-## 📋 IMPLEMENTATION REQUIREMENTS
+# Validate night shift candidates through FutureBlindSimulator
+python scripts/validate_night_shift.py
+python scripts/validate_night_shift.py --symbol SOL/USDT --top 3
 
-### Exchange Integration
-```python
-# Required for each exchange connection:
-- API key management with encryption
-- Rate limit tracking (per second/minute)
-- Automatic retry with backoff
-- Balance verification before trades
-- Order status monitoring
-- WebSocket connections for real-time data
+# Download OHLCV data from Binance (no API key needed)
+python scripts/download_ohlcv.py
+
+# Run backtests
+python scripts/run_backtest_r2.py                  # production MultiTFStrategy
+python scripts/wfa_fixed_params.py                 # 47-fold walk-forward analysis
+
+# Tests
+pytest
+
+# Lint (CI runs these)
+flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 ```
 
-### Risk Management
-```python
-# Mandatory for every trade:
-- Position size validation (<20% of capital)
-- Stop loss calculation and setting
-- Daily loss limit checking
-- Correlation analysis between positions
-- Slippage estimation
-- Gas cost pre-calculation
-```
-## 🔧 TECHNICAL PATTERNS
+## Architecture
 
-### Clone Spawning Pattern
-```python
-async def spawn_clone(parent_genetics, generation):
-    # 1. Verify capital threshold met
-    # 2. Generate unique clone ID
-    # 3. Mutate parent strategies
-    # 4. Deploy new Lambda function
-    # 5. Register in swarm registry
-    # 6. Initialize with capital allocation
-    # 7. Start autonomous operation
+### Data Flow
+
+```
+Binance → download_ohlcv.py → data/ohlcv/{SYMBOL}_1h.parquet
+                                   ↓
+              per_symbol_optimizer (compute_indicators, simulate_trades, _compute_score)
+                                   ↓
+              ┌──────────────┬────────────────────┐
+              │              │                    │
+         paper_trader   run_backtest_r2      night_shift
+         (live poll)    (full simulator)    (grid search + WFA)
+              │              │                    │
+              └──────────────┴────────────────────┘
+                                   ↓
+                        knowledge_base/production_config.json
+                        data/night_results/YYYY-MM-DD/report.md
 ```
 
-### MEV Hunting Pattern  
-```python
-async def hunt_mev_opportunity():
-    # 1. Monitor mempool via WebSocket
-    # 2. Simulate transaction impact
-    # 3. Calculate profit after gas
-    # 4. Submit via Flashbots if profitable
-    # 5. Monitor inclusion and success
-```
+### Key Files
 
-### Capital Pooling Pattern
-```python
-async def request_swarm_capital(amount, opportunity):
-    # 1. Check opportunity lock status
-    # 2. Calculate expected profit
-    # 3. Request from pool contract
-    # 4. Execute trade with pooled capital
-    # 5. Return capital + profit share
-```
+- **`backtesting/future_blind_simulator.py`** — `TradingStrategy` ABC, `FutureBlindSimulator`, `TradeSignal`, `Trade`, `SimulationResult`. The ABC requires implementing `async analyze(data, current_time) -> Optional[TradeSignal]`. Applies 0.1% fees, 10bps slippage, max 20% position size.
 
-## ⚠️ CRITICAL RULES
+- **`scripts/run_backtest_r2.py`** — Production `MultiTFStrategy` class + `timeframe_signal()` helper (exported and used by paper_trader). Score-based entry (0–1.0 range) from multi-TF trend alignment (0.4), mean reversion/RSI (0.3), momentum (0.15), Bollinger Bands (0.15), volume bonus (+0.1).
 
-1. **Real Money Mode Only**
-   - Every trade uses actual capital
-   - No paper trading or backtesting in production
-   - All losses are real and permanent
+- **`scripts/per_symbol_optimizer.py`** — Fast indicator-based simulation. Exports `compute_indicators()`, `simulate_trades()`, `compute_metrics()`, `_compute_score()`. Used by night_shift for speed. Computes all indicators (RSI, BB, ATR, ADX, momentum) as DataFrame columns.
 
-2. **Distributed Architecture**
-   - No single points of failure
-   - Every clone can operate independently
-   - Shared state via Redis, not local memory
+- **`scripts/night_shift.py`** — Overnight optimization. Expanding-window WFA (non-overlapping folds), coarse grid search (~30K combos), fine refinement, Darwinian evolution. Three-layer overfitting detection (IS-OOS gap, consistency, fragility). Generates structured morning reports.
 
-3. **Continuous Operation**
-   - System must run 24/7 without intervention
-   - Automatic recovery from failures
-   - Self-healing and adaptation
+- **`scripts/paper_trader.py`** — Live paper trader. Polls Binance 1h candles every 60s, runs the same score logic as the backtest. ADX regime filter (only enter when ADX > 25). State persists to `data/paper_trading/state.json`. Has per-symbol params (SOL uses night-shift-optimized config, others use production defaults).
 
-4. **Compliance First**
-   - Log every transaction for taxes
-   - Respect exchange terms of service
-   - No wash trading or manipulation
+- **`scripts/validate_night_shift.py`** — Bridges the two evaluation paths: takes night shift candidates (fast indicator sim) and validates them through the full `FutureBlindSimulator` (with fees/slippage).
 
-## 📊 MONITORING REQUIREMENTS
+- **`agents/historical_data_collector.py`** — `DataWindow` class that feeds OHLCV data to the simulator.
 
-### Real-Time Metrics
-- Capital per clone and total
-- Win rate by strategy
-- MEV success rate
-- Network fees vs profits
-- Clone health status
-- Error rates and types
+- **`knowledge_base/production_config.json`** — Single source of truth for active config, WFA results, symbols, regime filter settings.
 
-### Alerts (Immediate Action)
-- Capital loss >10% in 1 hour
-- Clone failure rate >25%
-- Exchange API errors
-- Smart contract failures
-- Unusual trading patterns
-## 🚀 IMPLEMENTATION WORKFLOW
+- **`knowledge_base_schema.py`** — Data structures: `StrategyGenome`, `KnowledgeBase` for saving/loading strategies.
 
-### When Starting a New Feature:
-1. Review existing code in `/home/tabs/crypto-swarm-trader`
-2. Check current infrastructure status
-3. Verify all API keys and connections
-4. Run integration tests before deployment
-5. Monitor for 1 hour after deployment
+### Validation Pipeline
 
-### Code Standards:
-```python
-# Every file must include:
-- Comprehensive docstrings
-- Type hints for all functions
-- Unit tests with >80% coverage
-- Integration tests for external APIs
-- Performance benchmarks
-```
+1. **Backtest** on 365d data → must show positive PnL, PF > 1.0
+2. **Walk-Forward Analysis** — 47 rolling 30-day windows, 7-day step (fixed params, no per-fold optimization)
+3. **ADX Regime Filter** — only enter when ADX > 25 (reduces variance 29%, +31.7% PnL)
+4. **Night Shift** — expanding-window WFA + grid search + overfitting detection
+5. **Simulator Validation** — confirm edge survives fees + slippage in FutureBlindSimulator
 
-### Deployment Process:
-1. Test on Polygon testnet first
-2. Deploy with 10% of capital limit
-3. Monitor for 24 hours
-4. Gradually increase limits
-5. Full deployment after 72 hours stable
+### Active Symbols
 
-## 💭 DECISION FRAMEWORK
+- BTC/USDT, ETH/USDT, SOL/USDT, BNB/USDT
+- XRP/USDT was dropped (net negative across all WFA folds)
 
-When implementing ANY feature, ask:
-1. **Is this using real infrastructure?** (No mocks)
-2. **Can this handle $100K+?** (Scale ready)
-3. **What happens if it fails?** (Graceful degradation)
-4. **Is this detectable?** (Anti-pattern analysis)
-5. **Can clones inherit this?** (Genetic compatibility)
+### Production Strategy Parameters
 
-## 🔴 ABSOLUTE PROHIBITIONS
+| Param | Default | SOL (night-shift optimized) |
+|-------|---------|---------------------------|
+| signal_threshold | 0.40 | 0.35 |
+| take_profit_atr | 6.0 | 2.95 |
+| stop_loss_atr | 2.5 | 1.25 |
+| max_hold_hours | 96 | 48 |
+| trailing_stop_atr | 1.0 | 0.70 |
+| score_flip_delay_hrs | 2 | 4 |
 
-**NEVER**:
-- Use `time.sleep()` - Use async/await
-- Store keys in code - Use environment variables
-- Trust external data - Validate everything
-- Assume success - Handle every error
-- Create infinite loops - Use circuit breakers
-- Make synchronous API calls - Always async
-- Deploy untested code - Test on testnet first
+### Key Design Decisions
 
-## ✅ FINAL CHECKLIST
+- **Night shift uses two separate evaluation engines**: `per_symbol_optimizer` functions (fast, indicator-based, no fees) for the grid search, and `FutureBlindSimulator` (slower, fee-aware) for final validation. The validate script bridges these.
+- **Median OOS Sharpe** (not mean) for aggregate metrics — prevents single-fold outliers from dominating.
+- **Per-fold Sharpe winsorized at ±100** — with few trades, Sharpe can go to ±8000+ via annualization.
+- **Fragility is a penalty, not a hard rejection** — formula: `survivor *= 1/(1+fragility)`.
 
-Before ANY commit:
-- [ ] All functions handle real money
-- [ ] Error handling is comprehensive  
-- [ ] Logging provides full audit trail
-- [ ] Tests cover edge cases
-- [ ] Security best practices followed
-- [ ] Documentation is complete
-- [ ] Performance is optimized
-- [ ] Clone inheritance considered
+## Data
 
-**Remember**: This system trades REAL MONEY autonomously. Every line of code must be production-grade, secure, and reliable. There are no second chances with other people's money.
+- `data/ohlcv/{SYMBOL}_{TF}.parquet` — Binance OHLCV, 1h/4h/1d timeframes, ~365 days
+- `data/night_results/YYYY-MM-DD/report.md` — morning reports from night shift
+- `data/paper_trading/state.json` — paper trader state (survives restarts)
+
+## CI/CD
+
+- **Night shift**: GitHub Actions cron at 14:00 UTC (midnight AEST), commits results to repo
+- **Tests**: `pytest` on push to master, Python 3.9–3.11, flake8 linting
+- **Workflow files**: `.github/workflows/night_shift.yml`, `.github/workflows/python-tests.yml`
+
+## Autonomous Agent Workflow
+
+The `AGENT_PROMPT.md` file describes the workflow for an AI research agent:
+1. Read the framework (TradingStrategy ABC, existing MultiTFStrategy)
+2. Implement a new strategy in `scripts/strategies/research_{name}.py`
+3. Backtest on 365d data across all symbols
+4. Walk-forward validate if initial results are positive
+5. Commit findings (even failures) with clear messages
+6. Never push to remote, only commit locally on `gnhf/strategy-research` branch

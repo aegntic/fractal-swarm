@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "schedule": {
-    "fetch_fresh_data": false,
+    "fetch_fresh_data": true,
     "max_hours_runtime": 8
   },
   "symbols": ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT"],
@@ -18,11 +18,31 @@
   },
   "overfitting": {
     "max_is_oos_gap": 0.5,
-    "min_oos_consistency": 0.50
+    "min_oos_consistency": 0.50,
+    "max_fragility": 0.4
   },
   "regime_analysis": {
     "adx_threshold": 25.0,
     "volatility_percentile_window": 60
   },
+  "validation": {
+    "top_candidates": 3
+  },
+  "experiments": [
+    {
+      "name": "wider_trailing_stops",
+      "type": "param_override",
+      "params": {
+        "trailing_stop_atr": [0.5, 0.8, 1.0, 1.2, 1.5, 2.0]
+      }
+    },
+    {
+      "name": "longer_flip_delays",
+      "type": "param_override",
+      "params": {
+        "score_flip_delay_hrs": [0, 1, 2, 3, 4, 6]
+      }
+    }
+  ],
   "output_dir": "data/night_results"
 }

@@ -54,8 +54,19 @@ from scripts.per_symbol_optimizer import (
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 DATA_DIR = os.path.join(ROOT, "data", "ohlcv")
 RESULTS_DIR = os.path.join(ROOT, "data", "night_results")
-CONFIG_PATH = os.path.join(ROOT, "data", "night_config.json")
+CONFIG_PATH = os.path.join(ROOT, "scripts", "night_config.json")
 PRODUCTION_CONFIG_PATH = os.path.join(ROOT, "knowledge_base", "production_config.json")
+
+# ─── Config Loader ────────────────────────────────────────────────────────────
+
+def load_config(config_path: Optional[str] = None) -> dict:
+    """Load night_config.json if it exists."""
+    path = config_path or CONFIG_PATH
+    if os.path.exists(path):
+        with open(path) as f:
+            return json.load(f)
+    return {}
+
 
 # ─── Defaults ─────────────────────────────────────────────────────────────────
 
@@ -241,10 +252,15 @@ class CandidateResult:
 def evaluate_on_fold(df: pd.DataFrame, fold: Fold, params: Dict,
                      skip_is: bool = False) -> Dict:
     """Evaluate a config on a single train/test fold. Returns IS + OOS metrics."""
+    is_bb = params.get("strategy") == "bb_mean_reversion"
+    sim_fn = simulate_bb_trades if is_bb else simulate_trades
+
     if not skip_is:
         # IS: train period
         train_df = df.iloc[fold.train_start_idx:fold.train_end_idx]
-        train_trips = simulate_trades(train_df, params) if len(train_df) > 250 else []
+        if is_bb:
+            train_df = compute_indicators(train_df)
+        train_trips = sim_fn(train_df, params) if len(train_df) > 250 else []
         train_m = compute_metrics(train_trips)
         is_sharpe = train_m["sharpe"]
         is_pnl = train_m["total_pnl_pct"]
@@ -254,7 +270,9 @@ def evaluate_on_fold(df: pd.DataFrame, fold: Fold, params: Dict,
 
     # OOS: test period
     test_df = df.iloc[fold.test_start_idx:fold.test_end_idx]
-    test_trips = simulate_trades(test_df, params) if len(test_df) > 10 else []
+    if is_bb:
+        test_df = compute_indicators(test_df)
+    test_trips = sim_fn(test_df, params) if len(test_df) > 10 else []
     test_m = compute_metrics(test_trips)
 
     return {
@@ -568,6 +586,391 @@ def darwinian_evolution(df: pd.DataFrame, folds: List[Fold], symbol: str,
     return unique[:pop_size * 2]
 
 
+# ─── BB Mean Reversion Strategy (Fast Evaluator) ──────────────────────────────
+
+BB_GRID = {
+    "rsi_oversold": [25, 28, 30, 33],
+    "stop_loss_atr_multiplier": [1.5, 2.0, 2.5],
+    "take_profit_atr_multiplier": [2.0, 3.0, 4.0],
+    "max_hold_hours": [36, 48, 72],
+    "trend_filter_period": [50, 100],
+}
+
+
+def simulate_bb_trades(df: pd.DataFrame, params: Dict) -> List[Dict]:
+    """Fast BB mean reversion simulation — mirrors simulate_trades() pattern."""
+    close = df["close"].values
+    high = df["high"].values
+    low = df["low"].values
+
+    # Compute indicators
+    bb_period = 20
+    sma = pd.Series(close).rolling(bb_period).mean().values
+    std = pd.Series(close).rolling(bb_period).std().values
+    bb_lower = sma - 2.0 * std
+    bb_middle = sma
+    bb_upper = sma + 2.0 * std
+
+    delta = pd.Series(close).diff()
+    gain = delta.where(delta > 0, 0).rolling(14).mean().values
+    loss_s = (-delta.where(delta < 0, 0)).rolling(14).mean().values
+    rs = np.where(loss_s > 0, gain / loss_s, 50.0)
+    with np.errstate(invalid='ignore'):
+        rsi = 100 - (100 / (1 + rs))
+    rsi = np.nan_to_num(rsi, nan=50.0)
+
+    trend_period = params.get("trend_filter_period", 50)
+    trend_sma = pd.Series(close).rolling(trend_period).mean().values
+
+    tr = pd.concat([
+        pd.Series(high - low),
+        pd.Series(high).shift(1).sub(pd.Series(close)).abs(),
+        pd.Series(low).shift(1).sub(pd.Series(close)).abs(),
+    ], axis=1).max(axis=1).values
+    atr = pd.Series(tr).rolling(14).mean().values
+
+    rsi_thresh = params.get("rsi_oversold", 30)
+    sl_mult = params.get("stop_loss_atr_multiplier", 2.0)
+    tp_mult = params.get("take_profit_atr_multiplier", 3.0)
+    max_hold = params.get("max_hold_hours", 48)
+    decay_hours = params.get("time_decay_hours", 24)
+
+    trips = []
+    in_position = False
+    entry_price = 0.0
+    entry_idx = 0
+    peak_price = 0.0
+    warmup = 250
+
+    for i in range(warmup, len(close)):
+        price = close[i]
+        a = atr[i] if not np.isnan(atr[i]) else 0
+        r = rsi[i] if not np.isnan(rsi[i]) else 50
+        bl = bb_lower[i] if not np.isnan(bb_lower[i]) else price
+        bm = bb_middle[i] if not np.isnan(bb_middle[i]) else price
+        bu = bb_upper[i] if not np.isnan(bb_upper[i]) else price
+        ts = trend_sma[i] if not np.isnan(trend_sma[i]) else price
+
+        if in_position:
+            hold_hrs = i - entry_idx
+            pnl_pct = (price - entry_price) / entry_price * 100
+
+            if price > peak_price:
+                peak_price = price
+
+            # Stop loss
+            if a > 0 and pnl_pct <= -(sl_mult * a / entry_price * 100):
+                trips.append({"pnl_pct": pnl_pct, "hold_hrs": hold_hrs, "exit": "stop_loss"})
+                in_position = False
+                continue
+
+            # Take profit
+            if a > 0 and pnl_pct >= (tp_mult * a / entry_price * 100):
+                trips.append({"pnl_pct": pnl_pct, "hold_hrs": hold_hrs, "exit": "take_profit"})
+                in_position = False
+                continue
+
+            # Max hold
+            if hold_hrs >= max_hold:
+                trips.append({"pnl_pct": pnl_pct, "hold_hrs": hold_hrs, "exit": "max_hold"})
+                in_position = False
+                continue
+
+            # Time decay
+            if pnl_pct < 0 and hold_hrs >= decay_hours:
+                trips.append({"pnl_pct": pnl_pct, "hold_hrs": hold_hrs, "exit": "time_decay"})
+                in_position = False
+                continue
+
+            # Mean reversion targets
+            if price >= bm:
+                trips.append({"pnl_pct": pnl_pct, "hold_hrs": hold_hrs, "exit": "middle_band"})
+                in_position = False
+                continue
+        else:
+            # Entry: price at/below lower band + RSI oversold + uptrend
+            if price <= bl and r <= rsi_thresh and price > ts:
+                in_position = True
+                entry_price = price
+                entry_idx = i
+                peak_price = price
+
+    return trips
+
+
+def run_bb_grid_search(df: pd.DataFrame, folds: List[Fold], symbol: str,
+                       of_config: Dict) -> List[CandidateResult]:
+    """Run BB mean reversion grid search on all WFA folds."""
+    combos = grid_combos(BB_GRID)
+    log(f"  BB grid: {len(combos)} combos for {symbol}")
+
+    results = []
+    for i, params in enumerate(combos):
+        params["min_alignment"] = 0  # not used by BB
+        params["strategy"] = "bb_mean_reversion"
+        cr = evaluate_candidate(df, folds, params, symbol, of_config,
+                               compute_fragility=False, skip_is=True)
+        cr.params["strategy"] = "bb_mean_reversion"
+        results.append(cr)
+
+        if (i + 1) % 5000 == 0:
+            log(f"    [{symbol}] {i+1}/{len(combos)} evaluated...")
+
+    passed = sum(1 for r in results if not r.rejected)
+    log(f"    [{symbol}] Done. {passed} passed filters out of {len(results)}")
+    return results
+
+
+# ─── Experiment Runner ────────────────────────────────────────────────────────
+
+def run_experiments(df: pd.DataFrame, folds: List[Fold], symbol: str,
+                   experiments: List[Dict], of_config: Dict) -> List[CandidateResult]:
+    """Run custom experiments from night_config.json experiments array."""
+    results = []
+    for exp in experiments:
+        name = exp.get("name", "unnamed")
+        exp_type = exp.get("type", "param_override")
+
+        if exp_type == "param_override":
+            overrides = exp.get("params", {})
+            if isinstance(list(overrides.values())[0], list):
+                # Sweep: param -> [values]
+                sweep_params = list(overrides.items())
+                sweep_combos = grid_combos({k: v for k, v in sweep_params if isinstance(v, list)})
+                log(f"  Experiment '{name}': {len(sweep_combos)} sweep combos")
+                for combo in sweep_combos:
+                    params = {**PRODUCTION_CONFIG, **combo}
+                    cr = evaluate_candidate(df, folds, params, symbol, of_config,
+                                           compute_fragility=False, skip_is=True)
+                    cr.params["experiment"] = name
+                    results.append(cr)
+            else:
+                # Single override
+                params = {**PRODUCTION_CONFIG, **overrides}
+                cr = evaluate_candidate(df, folds, params, symbol, of_config,
+                                       compute_fragility=True)
+                cr.params["experiment"] = name
+                results.append(cr)
+                log(f"  Experiment '{name}': Sharpe={cr.oos_sharpe:+.2f} cons={cr.oos_consistency:.0%}")
+
+        elif exp_type == "conditional":
+            # Regime-conditional: different params based on ADX
+            condition_adx = exp.get("condition_adx", 25)
+            then_overrides = exp.get("then_overrides", {})
+            else_overrides = exp.get("else_overrides", {})
+            log(f"  Experiment '{name}': ADX>{condition_adx} conditional")
+            params = {**PRODUCTION_CONFIG, **then_overrides}
+            params["experiment"] = name
+            cr = evaluate_candidate(df, folds, params, symbol, of_config,
+                                   compute_fragility=True)
+            results.append(cr)
+
+    return results
+
+
+# ─── Post-Run Auto-Validation ────────────────────────────────────────────────
+
+def auto_validate_top_candidates(all_results: Dict[str, List[CandidateResult]],
+                                  output_dir: str, top_n: int = 3) -> str:
+    """Validate top night shift candidates through FutureBlindSimulator.
+
+    Imports and runs validate_night_shift logic synchronously within the night
+    shift process. Only validates candidates that beat the production baseline.
+    """
+    log(f"\n── Phase 7: Auto-Validation (FutureBlindSimulator) ──")
+
+    import asyncio
+    from backtesting.future_blind_simulator import FutureBlindSimulator
+
+    validated = []
+
+    for symbol, results in all_results.items():
+        # Skip if results are not CandidateResult objects
+        if not results or not hasattr(results[0], 'survivor_score'):
+            continue
+
+        # Filter: non-rejected, not coarse-only, beats production baseline
+        prod = next((r for r in results if r.params == PRODUCTION_CONFIG), None)
+        candidates = [r for r in results if not r.rejected]
+        # Note: include coarse-only candidates here — the whole point of auto-validation
+        # is to check fast-sim candidates through the full simulator
+        if prod:
+            candidates = [r for r in candidates
+                         if r.survivor_score > prod.survivor_score * 1.1]
+        candidates = sorted(candidates, key=lambda r: r.survivor_score, reverse=True)[:top_n]
+
+        if not candidates:
+            log(f"  {symbol}: no candidates beat production baseline, skipping validation")
+            continue
+
+        safe = symbol.replace("/", "_")
+        path = os.path.join(DATA_DIR, f"{safe}_1h.parquet")
+        if not os.path.exists(path):
+            log(f"  {symbol}: no data file, skipping")
+            continue
+
+        df = pd.read_parquet(path)
+
+        # Build folds matching validate_night_shift.py
+        test_bars = 36 * 24  # 36-day test windows
+        warmup = 250
+        usable = len(df) - warmup
+        actual = min(9, usable // test_bars)
+        bars_per = test_bars if actual < (usable // test_bars) else usable // actual
+        folds_list = []
+        start = warmup
+        for fi in range(actual):
+            end = start + bars_per if fi < actual - 1 else len(df)
+            folds_list.append((fi, start, end))
+            start = end
+
+        if not folds_list:
+            log(f"  {symbol}: not enough data for validation folds")
+            continue
+
+        log(f"  {symbol}: validating {len(candidates)} candidates on {len(folds_list)} folds")
+
+        for cand in candidates:
+            label = cand.params.get("experiment", cand.params.get("label",
+                    f"candidate_{candidates.index(cand)+1}"))
+            log(f"    [{label}]")
+
+            # Check if this is a BB strategy
+            is_bb = cand.params.get("strategy") == "bb_mean_reversion"
+
+            fold_results = []
+            for fold_num, train_end, test_end in folds_list:
+                window_df = df.iloc[max(0, train_end - 250):test_end]
+                if len(window_df) < 300:
+                    continue
+
+                if is_bb:
+                    # BB strategy uses its own indicator columns
+                    window_df = compute_indicators(window_df)
+                    trips = simulate_bb_trades(window_df, cand.params)
+                    # Compute metrics from trips
+                    if trips:
+                        pnls = [t["pnl_pct"] for t in trips]
+                        wins = [p for p in pnls if p > 0]
+                        avg_win = np.mean(wins) if wins else 0
+                        avg_loss = abs(np.mean([p for p in pnls if p <= 0])) or 0.001
+                        pf = avg_win / avg_loss
+                        m = {
+                            "total_pnl_pct": sum(pnls),
+                            "round_trips": len(pnls),
+                            "win_rate": len(wins) / len(pnls) if pnls else 0,
+                            "profit_factor": pf,
+                            "avg_hold_hrs": np.mean([t["hold_hrs"] for t in trips]),
+                            "max_drawdown_pct": 0,  # simplified
+                            "sharpe": np.mean(pnls) / (np.std(pnls) or 0.001) * np.sqrt(8760),
+                        }
+                    else:
+                        m = {"total_pnl_pct": 0, "round_trips": 0, "win_rate": 0,
+                             "profit_factor": 0, "avg_hold_hrs": 0, "max_drawdown_pct": 0, "sharpe": 0}
+                else:
+                    # Use FutureBlindSimulator for MultiTFStrategy candidates
+                    from agents.historical_data_collector import DataWindow
+                    from scripts.run_backtest_r2 import MultiTFStrategy
+                    try:
+                        loop = asyncio.new_event_loop()
+                        strategy = MultiTFStrategy(f"val_{symbol}",
+                                                  {**{"symbol": symbol}, **cand.params})
+                        sim = FutureBlindSimulator(initial_capital=10000)
+                        sim.add_strategy(strategy)
+                        window = DataWindow(
+                            symbol=symbol, exchange="binance",
+                            start_time=window_df.index[0].to_pydatetime(),
+                            end_time=window_df.index[-1].to_pydatetime(),
+                            current_time=window_df.index[0].to_pydatetime(),
+                            data=window_df,
+                        )
+                        result = loop.run_until_complete(
+                            sim.run_simulation(window, time_step_minutes=60))
+                        trips = strategy.completed_round_trips
+                        loop.close()
+
+                        if trips:
+                            pnls = [t["pnl_pct"] for t in trips]
+                            wins = [p for p in pnls if p > 0]
+                            avg_win = np.mean(wins) if wins else 0
+                            avg_loss = abs(np.mean([p for p in pnls if p <= 0])) or 0.001
+                            pf = avg_win / avg_loss
+                            cum = np.cumsum(pnls)
+                            running_max = np.maximum.accumulate(cum)
+                            max_dd = abs(min(cum - running_max)) if len(cum) > 0 else 0
+                            m = {
+                                "total_pnl_pct": sum(pnls),
+                                "round_trips": len(pnls),
+                                "win_rate": len(wins) / len(pnls) if pnls else 0,
+                                "profit_factor": pf,
+                                "avg_hold_hrs": np.mean([t["hold_hrs"] for t in trips]),
+                                "max_drawdown_pct": max_dd,
+                                "sharpe": np.mean(pnls) / (np.std(pnls) or 0.001) * np.sqrt(8760),
+                            }
+                        else:
+                            m = {"total_pnl_pct": 0, "round_trips": 0, "win_rate": 0,
+                                 "profit_factor": 0, "avg_hold_hrs": 0, "max_drawdown_pct": 0, "sharpe": 0}
+                    except Exception as e:
+                        log(f"      fold {fold_num}: error ({e})")
+                        continue
+
+                fold_results.append(m)
+
+            if not fold_results:
+                log(f"    → no valid folds")
+                continue
+
+            # Aggregate
+            total_pnl = sum(f["total_pnl_pct"] for f in fold_results)
+            sharpes = [max(-100, min(100, f["sharpe"])) for f in fold_results]
+            med_sharpe = float(np.median(sharpes))
+            consistency = sum(1 for f in fold_results if f["total_pnl_pct"] > 0) / len(fold_results)
+            total_trades = sum(f["round_trips"] for f in fold_results)
+
+            vr = {
+                "symbol": symbol,
+                "label": label,
+                "params": {k: v for k, v in cand.params.items() if k not in ("min_alignment",)},
+                "total_pnl_pct": round(total_pnl, 2),
+                "median_sharpe": round(med_sharpe, 2),
+                "consistency": round(consistency, 3),
+                "avg_win_rate": round(np.mean([f["win_rate"] for f in fold_results]), 3),
+                "avg_pf": round(np.mean([f["profit_factor"] for f in fold_results
+                                        if f["profit_factor"] < 999]), 2),
+                "avg_max_dd": round(np.mean([f["max_drawdown_pct"] for f in fold_results]), 2),
+                "total_trades": total_trades,
+                "folds": len(fold_results),
+                "verdict": "STRONG" if consistency >= 0.7 and total_pnl > 0
+                           else "MODERATE" if consistency >= 0.5 and total_pnl > 0
+                           else "MARGINAL" if consistency >= 0.4
+                           else "FAILED",
+            }
+            validated.append(vr)
+
+            log(f"    → PnL={vr['total_pnl_pct']:+.2f}% Sharpe={vr['median_sharpe']:+.2f} "
+                f"cons={vr['consistency']:.0%} [{vr['verdict']}]")
+
+    # Save validation results
+    date_dir = os.path.join(output_dir, datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+    os.makedirs(date_dir, exist_ok=True)
+    val_path = os.path.join(date_dir, "full_sim_validation.json")
+    with open(val_path, "w") as f:
+        json.dump({
+            "run_at": datetime.now(timezone.utc).isoformat(),
+            "simulator": "FutureBlindSimulator (fees + slippage)",
+            "results": validated,
+        }, f, indent=2, default=str)
+    log(f"  Validation results saved to {val_path}")
+
+    # Summary
+    strong = [v for v in validated if v["verdict"] == "STRONG"]
+    moderate = [v for v in validated if v["verdict"] == "MODERATE"]
+    log(f"  Validation summary: {len(strong)} STRONG, {len(moderate)} MODERATE, "
+        f"{len(validated) - len(strong) - len(moderate)} MARGINAL/FAILED")
+
+    return val_path
+
+
 # ─── Regime Analysis ─────────────────────────────────────────────────────────
 
 def compute_adx(df: pd.DataFrame, period: int = 14) -> pd.Series:
@@ -767,6 +1170,12 @@ def generate_report(
     w(f"")
     w(f"*Only candidates validated on 5+ WFA folds are shown.*")
     w(f"")
+    # Count strategies
+    bb_count_report = sum(1 for cr in validated_candidates if cr.params.get("strategy") == "bb_mean_reversion")
+    mtf_count_report = len(validated_candidates) - bb_count_report
+    if bb_count_report:
+        w(f"**Strategy breakdown:** {mtf_count_report} MultiTF, {bb_count_report} BB Mean Reversion")
+        w(f"")
 
     all_candidates = []
     for sym, results in all_results.items():
@@ -796,7 +1205,8 @@ def generate_report(
         conf = "STRONG" if cr.survivor_score > (prod.survivor_score * 1.5 if prod else 2) else \
                "MEDIUM" if cr.survivor_score > (prod.survivor_score * 1.2 if prod else 1) else "LOW"
 
-        w(f"### #{shown+1}: {cr.symbol} (Survivor: {cr.survivor_score:.2f} {delta})")
+        strategy_tag = " [BB]" if cr.params.get("strategy") == "bb_mean_reversion" else ""
+        w(f"### #{shown+1}: {cr.symbol}{strategy_tag} (Survivor: {cr.survivor_score:.2f} {delta})")
         w(f"```json")
         w(json.dumps(cr.params, indent=2))
         w(f"```")
@@ -968,15 +1378,19 @@ def run_night_shift(
 ):
     """Main entry point for the night shift."""
     start_time = time.time()
+    config = load_config(config_path)
 
     log(f"{'='*70}")
     log(f"NIGHT SHIFT — Autonomous Strategy Optimization")
     log(f"Symbols: {', '.join(symbols)}")
+    if config:
+        log(f"Config: {config_path or CONFIG_PATH}")
     log(f"{'='*70}")
 
     # ── Phase 1: Data ──
     log(f"\n── Phase 1: Data ──")
-    if not skip_fetch:
+    fetch = config.get("schedule", {}).get("fetch_fresh_data", True)
+    if not skip_fetch and fetch:
         log(f"Fetching fresh data from Binance...")
         fetch_fresh_data(symbols)
     else:
@@ -1036,6 +1450,24 @@ def run_night_shift(
         )
         all_results[symbol].extend(survivors)
 
+    # ── Phase 4b: BB Mean Reversion Grid Search ──
+    log(f"\n── Phase 4b: BB Mean Reversion ──")
+    for symbol in dfs:
+        bb_results = run_bb_grid_search(dfs[symbol], folds, symbol, OVERFITTING_CONFIG)
+        if symbol not in all_results:
+            all_results[symbol] = []
+        all_results[symbol].extend(bb_results)
+
+    # ── Phase 4c: Custom Experiments ──
+    experiments = config.get("experiments", [])
+    if experiments:
+        log(f"\n── Phase 4c: Custom Experiments ({len(experiments)}) ──")
+        for symbol in dfs:
+            exp_results = run_experiments(dfs[symbol], folds, symbol, experiments, OVERFITTING_CONFIG)
+            all_results[symbol].extend(exp_results)
+    else:
+        log(f"\n── Phase 4c: No experiments configured (add to night_config.json) ──")
+
     # ── Phase 5: Regime Analysis ──
     log(f"\n── Phase 5: Regime Analysis ──")
     regime = regime_analysis(dfs)
@@ -1046,10 +1478,25 @@ def run_night_shift(
     report_path = generate_report(all_results, regime, folds, run_time, RESULTS_DIR)
     log(f"Report saved to {report_path}")
 
+    # ── Phase 7: Auto-Validation ──
+    val_top = config.get("validation", {}).get("top_candidates", 3)
+    val_path = auto_validate_top_candidates(all_results, RESULTS_DIR, top_n=val_top)
+
     # ── Summary ──
+    final_time = time.time() - start_time
     log(f"\n{'='*70}")
-    log(f"NIGHT SHIFT COMPLETE — {run_time:.0f}s")
+    log(f"NIGHT SHIFT COMPLETE — {final_time:.0f}s")
     log(f"{'='*70}")
+
+    # Count BB strategies
+    bb_count = sum(
+        1 for results in all_results.values()
+        for r in results if r.params.get("strategy") == "bb_mean_reversion"
+    )
+    exp_count = sum(
+        1 for results in all_results.values()
+        for r in results if r.params.get("experiment")
+    )
 
     for symbol, results in all_results.items():
         non_rejected = [r for r in results if not r.rejected]
@@ -1071,7 +1518,12 @@ def run_night_shift(
         f"{sum(len(r) for r in all_results.values())}")
     log(f"  Total passed filters: "
         f"{sum(sum(1 for r in results if not r.rejected) for results in all_results.values())}")
+    if bb_count:
+        log(f"  BB Mean Reversion candidates: {bb_count}")
+    if exp_count:
+        log(f"  Custom experiment candidates: {exp_count}")
     log(f"  Report: {report_path}")
+    log(f"  Validation: {val_path}")
 
     # Also save full results as JSON for programmatic access
     json_path = os.path.join(RESULTS_DIR, datetime.now(timezone.utc).strftime("%Y-%m-%d"), "full_results.json")

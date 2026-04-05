@@ -41,6 +41,26 @@ PRODUCTION_PARAMS = {
     "trailing_stop_atr": 1.0,
 }
 
+# Per-symbol overrides — night shift validated configs
+# SOL: +98.41% PnL, 78% consistency, 432 trades over 324 days (full sim)
+# BTC/ETH/BNB: use production (no validated improvement yet)
+SYMBOL_PARAMS = {
+    "BTC/USDT": PRODUCTION_PARAMS,
+    "ETH/USDT": PRODUCTION_PARAMS,
+    "SOL/USDT": {
+        "signal_threshold": 0.35,
+        "min_alignment": 3,
+        "take_profit_atr": 2.9537,
+        "stop_loss_atr": 1.25,
+        "max_hold_hours": 48,
+        "time_decay_hours": 28,
+        "score_flip_delay_hrs": 4,
+        "trailing_stop_atr": 0.7012,
+        "label": "night_shift_1",
+    },
+    "BNB/USDT": PRODUCTION_PARAMS,
+}
+
 # Drop XRP — confirmed net-negative across all WFA folds (-10.4% total)
 TRADE_SYMBOLS = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT"]
 
@@ -232,7 +252,7 @@ class PaperTrader:
         exit_reason = None
 
         # Trailing stop: ratchet from peak, exit if price drops N ATR from peak
-        trail_atr = PRODUCTION_PARAMS.get("trailing_stop_atr", 0)
+        trail_atr = SYMBOL_PARAMS[symbol].get("trailing_stop_atr", 0)
         if trail_atr > 0 and atr > 0:
             peak = pos.get("peak_price", pos["entry_price"])
             if price > peak:
@@ -250,19 +270,19 @@ class PaperTrader:
                 }
 
         # Stop loss
-        if atr > 0 and pnl_pct <= -(PRODUCTION_PARAMS["stop_loss_atr"] * atr / pos["entry_price"] * 100):
+        if atr > 0 and pnl_pct <= -(SYMBOL_PARAMS[symbol]["stop_loss_atr"] * atr / pos["entry_price"] * 100):
             exit_reason = "stop_loss"
         # Take profit
-        elif atr > 0 and pnl_pct >= (PRODUCTION_PARAMS["take_profit_atr"] * atr / pos["entry_price"] * 100):
+        elif atr > 0 and pnl_pct >= (SYMBOL_PARAMS[symbol]["take_profit_atr"] * atr / pos["entry_price"] * 100):
             exit_reason = "take_profit"
         # Max hold
-        elif hold_hrs >= PRODUCTION_PARAMS["max_hold_hours"]:
+        elif hold_hrs >= SYMBOL_PARAMS[symbol]["max_hold_hours"]:
             exit_reason = "max_hold"
         # Time decay
-        elif pnl_pct < 0 and hold_hrs >= PRODUCTION_PARAMS["time_decay_hours"]:
+        elif pnl_pct < 0 and hold_hrs >= SYMBOL_PARAMS[symbol]["time_decay_hours"]:
             exit_reason = "time_decay"
         # Score flip (with delay — let the trade breathe)
-        elif score < 0 and hold_hrs >= PRODUCTION_PARAMS.get("score_flip_delay_hrs", 0):
+        elif score < 0 and hold_hrs >= SYMBOL_PARAMS[symbol].get("score_flip_delay_hrs", 0):
             exit_reason = "score_flip"
         # MR target
         elif rsi > 55 and pos.get("entry_rsi", 50) < 35:
@@ -323,7 +343,7 @@ class PaperTrader:
 
         # --- Check entries ---
         if symbol not in self.positions:
-            if score > PRODUCTION_PARAMS["signal_threshold"]:
+            if score > SYMBOL_PARAMS[symbol]["signal_threshold"]:
                 if current_adx < ADX_THRESHOLD:
                     self.signals.append({
                         "time": now.isoformat(), "symbol": symbol, "action": "FILTERED",
@@ -410,8 +430,9 @@ class PaperTrader:
         print(f"PAPER TRADER STARTED")
         print(f"Symbols: {', '.join(TRADE_SYMBOLS)}")
         print(f"ADX filter: > {ADX_THRESHOLD} (trending only)")
-        print(f"Params: threshold={PRODUCTION_PARAMS['signal_threshold']} "
-              f"TP={PRODUCTION_PARAMS['take_profit_atr']}xATR SL={PRODUCTION_PARAMS['stop_loss_atr']}xATR")
+        custom = {s: p.get("label", "production") for s, p in SYMBOL_PARAMS.items() if p != PRODUCTION_PARAMS}
+        print(f"Custom configs: {custom or 'none'}")
+        print(f"Params: SOL threshold=0.35 TP=2.95x SL=1.25x trail=0.70x")
         print(f"{'='*60}\n")
 
         last_candles = {sym: None for sym in TRADE_SYMBOLS}
