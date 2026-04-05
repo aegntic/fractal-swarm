@@ -1170,12 +1170,6 @@ def generate_report(
     w(f"")
     w(f"*Only candidates validated on 5+ WFA folds are shown.*")
     w(f"")
-    # Count strategies
-    bb_count_report = sum(1 for cr in validated_candidates if cr.params.get("strategy") == "bb_mean_reversion")
-    mtf_count_report = len(validated_candidates) - bb_count_report
-    if bb_count_report:
-        w(f"**Strategy breakdown:** {mtf_count_report} MultiTF, {bb_count_report} BB Mean Reversion")
-        w(f"")
 
     all_candidates = []
     for sym, results in all_results.items():
@@ -1184,6 +1178,13 @@ def generate_report(
 
     # Filter: only fully-validated candidates (5+ folds) for rankings
     validated_candidates = [r for r in all_candidates if not r.is_coarse_only]
+
+    # Count strategies
+    bb_count_report = sum(1 for cr in validated_candidates if cr.params.get("strategy") == "bb_mean_reversion")
+    mtf_count_report = len(validated_candidates) - bb_count_report
+    if bb_count_report:
+        w(f"**Strategy breakdown:** {mtf_count_report} MultiTF, {bb_count_report} BB Mean Reversion")
+        w(f"")
 
     # Find production baseline scores for delta comparison
     prod_scores = {}
