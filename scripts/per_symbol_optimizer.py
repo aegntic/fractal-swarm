@@ -72,15 +72,12 @@ def compute_indicators(df: pd.DataFrame) -> pd.DataFrame:
     # Volume ratio
     df["vol_ratio"] = volume / volume.rolling(20).mean()
 
-    # ATR
-    tr = pd.concat([
-        high - low,
-        (high - close.shift()).abs(),
-        (low - close.shift()).abs()
-    ], axis=1).max(axis=1)
-    df["atr"] = tr.rolling(14).mean()
+    # ATR — MUST match FutureBlindSimulator's ATR proxy exactly:
+    # Full sim uses: tf_1h["volatility"] * close = std(returns, 20h) * close
+    # NOT True Range. Using the wrong ATR caused 1.6x wider stops in fast sim.
+    df["atr"] = close.pct_change().rolling(20).std() * close
 
-    # Volatility (% return std, 20h)
+    # Volatility (% return std, 20h) — kept for backward compat
     df["volatility"] = close.pct_change().rolling(20).std()
 
     return df
@@ -112,6 +109,9 @@ def simulate_trades(df: pd.DataFrame, params: Dict) -> List[Dict]:
     mom = df["momentum_4h"].values
     bb_pos = df["bb_pos"].values
     vol_ratio = df["vol_ratio"].values
+    # Daily trend — needed for MR conditions (must match full sim)
+    daily_bull = df["trend_1d"].values if "trend_1d" in df.columns else np.zeros(len(df))
+    daily_bear = -daily_bull  # trend_1d is 1, 0, or -1
 
     warmup = 250  # skip first 250 bars for indicator warmup
 
@@ -164,7 +164,9 @@ def simulate_trades(df: pd.DataFrame, params: Dict) -> List[Dict]:
 
             # Compute score for exit check
             score = _compute_score(bull_count[i], bear_count[i], r, mom[i], bb_pos[i], vol_ratio[i],
-                                   threshold, min_alignment)
+                                   threshold, min_alignment,
+                                   daily_bull=(daily_bull[i] == 1),
+                                   daily_bear=(daily_bear[i] == 1))
             if score < 0:
                 trips.append({"pnl_pct": pnl_pct, "hold_hrs": hold_hrs, "exit": "score_flip"})
                 in_position = False
@@ -178,7 +180,9 @@ def simulate_trades(df: pd.DataFrame, params: Dict) -> List[Dict]:
         else:
             # Entry
             score = _compute_score(bull_count[i], bear_count[i], r, mom[i], bb_pos[i], vol_ratio[i],
-                                   threshold, min_alignment)
+                                   threshold, min_alignment,
+                                   daily_bull=(daily_bull[i] == 1),
+                                   daily_bear=(daily_bear[i] == 1))
             if score > threshold:
                 in_position = True
                 entry_price = price
@@ -190,8 +194,14 @@ def simulate_trades(df: pd.DataFrame, params: Dict) -> List[Dict]:
     return trips
 
 
-def _compute_score(bull, bear, rsi, mom, bb_pos, vol_ratio, threshold, min_alignment):
-    """Replicate MultiTFStrategy._compute_score logic."""
+def _compute_score(bull, bear, rsi, mom, bb_pos, vol_ratio, threshold, min_alignment,
+                    daily_bull=False, daily_bear=False):
+    """Replicate MultiTFStrategy._compute_score logic exactly.
+
+    Args:
+        daily_bull: True if daily (200h) trend is bullish. Used for MR conditions.
+        daily_bear: True if daily trend is bearish. Used for MR conditions.
+    """
     score = 0.0
 
     # Trend alignment (weight 0.4)
@@ -204,16 +214,16 @@ def _compute_score(bull, bear, rsi, mom, bb_pos, vol_ratio, threshold, min_align
         if vol_ratio > 1.3:
             score -= 0.1
 
-    # Mean reversion (weight 0.3)
+    # Mean reversion (weight 0.3) — MUST match full sim exactly
     if np.isnan(rsi):
         rsi = 50
     if rsi < 30:
         score += 0.3
-    elif rsi < 35 and bull >= min_alignment:
+    elif rsi < 35 and daily_bull:
         score += 0.2
     elif rsi > 70:
         score -= 0.3
-    elif rsi > 65 and bear >= min_alignment:
+    elif rsi > 65 and daily_bear:
         score -= 0.2
 
     # Momentum (weight 0.15)
@@ -235,8 +245,14 @@ def _compute_score(bull, bear, rsi, mom, bb_pos, vol_ratio, threshold, min_align
     return score
 
 
-def compute_metrics(trips: List[Dict]) -> Dict:
-    """Compute performance metrics from trips."""
+def compute_metrics(trips: List[Dict], total_hours: float = 0) -> Dict:
+    """Compute performance metrics from trips.
+
+    Args:
+        total_hours: Total time span of the backtest window in hours.
+                     Used for correct Sharpe annualization. Falls back to
+                     trade hold-time estimate if not provided.
+    """
     if not trips:
         return {"round_trips": 0, "win_rate": 0, "total_pnl_pct": 0, "pf": 0,
                 "sharpe": 0, "max_dd_pct": 0, "avg_pnl_pct": 0, "avg_hold_hrs": 0}
@@ -250,7 +266,21 @@ def compute_metrics(trips: List[Dict]) -> Dict:
     drawdowns = cum - running_max
     max_dd = abs(min(drawdowns)) if len(drawdowns) > 0 else 0
 
-    sharpe = np.mean(pnls) / np.std(pnls) * np.sqrt(24 * 365) if np.std(pnls) > 0 else 0
+    # Sharpe annualization: use actual trade frequency, not assume 1/hour.
+    # Old formula assumed 1 trade/hour → 10x overstatement for ~15 trades/36 days.
+    # Correct: sqrt(n_trades / total_hours * 8760)
+    std_pnl = np.std(pnls)
+    if std_pnl > 0:
+        raw_sharpe = np.mean(pnls) / std_pnl
+        if total_hours > 0:
+            trades_per_year = (len(pnls) / total_hours) * 8760
+        else:
+            # Estimate from trade hold times (accounts for sequential trades)
+            total_hold = sum(t["hold_hrs"] for t in trips)
+            trades_per_year = (len(pnls) / max(total_hold, 1)) * 8760
+        sharpe = raw_sharpe * np.sqrt(max(trades_per_year, 0.1))
+    else:
+        sharpe = 0.0
     avg_win = np.mean(wins) if wins else 0
     avg_loss = abs(np.mean(losses)) if losses else 0
     pf = avg_win / avg_loss if avg_loss > 0 else 999

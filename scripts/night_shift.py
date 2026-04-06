@@ -261,7 +261,8 @@ def evaluate_on_fold(df: pd.DataFrame, fold: Fold, params: Dict,
         if is_bb:
             train_df = compute_indicators(train_df)
         train_trips = sim_fn(train_df, params) if len(train_df) > 250 else []
-        train_m = compute_metrics(train_trips)
+        train_hours = fold.train_end_idx - fold.train_start_idx
+        train_m = compute_metrics(train_trips, total_hours=train_hours)
         is_sharpe = train_m["sharpe"]
         is_pnl = train_m["total_pnl_pct"]
     else:
@@ -273,7 +274,8 @@ def evaluate_on_fold(df: pd.DataFrame, fold: Fold, params: Dict,
     if is_bb:
         test_df = compute_indicators(test_df)
     test_trips = sim_fn(test_df, params) if len(test_df) > 10 else []
-    test_m = compute_metrics(test_trips)
+    test_hours = fold.test_end_idx - fold.test_start_idx
+    test_m = compute_metrics(test_trips, total_hours=test_hours)
 
     return {
         "is_sharpe": is_sharpe,
