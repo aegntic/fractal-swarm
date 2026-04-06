@@ -1,41 +1,54 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-A crypto backtesting and paper trading system with automated overnight strategy optimization. Uses multi-timeframe confluence analysis on hourly Binance data with walk-forward validation to avoid overfitting. The production strategy (MultiTFStrategy) is validated on 365d data with 47-fold WFA.
+A crypto backtesting and paper trading system with automated overnight strategy optimization. Uses multi-timeframe confluence analysis on hourly Binance data with walk-forward validation. The production strategy (MultiTFStrategy) generates scores from trend alignment (1h/4h/1d), mean reversion (RSI), momentum, and Bollinger Bands.
 
-**This is a research/backtesting/paper-trading project.** No real money trades. The `_archive/` and `worldmonitor/` directories are unrelated to the active system — ignore them unless explicitly asked about them.
+**This is a research/backtesting/paper-trading project.** No real money trades.
+
+- **`_archive/`** and **`worldmonitor/`** are unrelated to the active system — ignore them.
+- **`knowledge_base/`** has legacy config/schema code not actively used.
+
+## Quick Setup
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install pandas numpy ccxt pyarrow redis
+
+# Paper trading (runs 24/7, polls Binance 1h candles)
+PYTHONUNBUFFERED=1 nohup python scripts/paper_trader.py >> data/paper_trading/paper_trader.log 2>&1 &
+
+# Night shift locally
+python scripts/night_shift.py --skip-fetch
+
+# Full-sim validation
+python scripts/validate_night_shift.py --production
+```
 
 ## Commands
 
 ```bash
-# Paper trading (live Binance data, no real trades)
+# Paper trading
 python scripts/paper_trader.py
 
-# Night shift — overnight parameter optimization (no LLM, pure math)
+# Night shift
 python scripts/night_shift.py                      # defaults (4 symbols, 9 folds)
 python scripts/night_shift.py --skip-fetch         # use cached data
 python scripts/night_shift.py --symbols SOL/USDT   # single symbol
 
-# Validate night shift candidates through FutureBlindSimulator
-python scripts/validate_night_shift.py
+# Validation
+python scripts/validate_night_shift.py --production           # production + candidates
 python scripts/validate_night_shift.py --symbol SOL/USDT --top 3
 
-# Download OHLCV data from Binance (no API key needed)
-python scripts/download_ohlcv.py
+# Self-correction modules
+python scripts/evaluator_calibration.py --samples 20            # calibrate fast vs full sim
+python scripts/evaluator_calibration.py --fast-only             # quick diversity check
+python scripts/discrepancy_detector.py                           # check latest night results
 
-# Run backtests
-python scripts/run_backtest_r2.py                  # production MultiTFStrategy
-python scripts/wfa_fixed_params.py                 # 47-fold walk-forward analysis
-
-# Tests
-pytest
-
-# Lint (CI runs these)
-flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+# Data
+python scripts/download_ohlcv.py                   # fetch from Binance (no API key needed)
 ```
 
 ## Architecture
@@ -43,58 +56,59 @@ flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statist
 ### Data Flow
 
 ```
-Binance → download_ohlcv.py → data/ohlcv/{SYMBOL}_1h.parquet
+Binance → download_ohlcv.py → data/ohlcv/{SYMBOL}_1h.parquet (committed to repo)
                                    ↓
               per_symbol_optimizer (compute_indicators, simulate_trades, _compute_score)
-                                   ↓
-              ┌──────────────┬────────────────────┐
-              │              │                    │
-         paper_trader   run_backtest_r2      night_shift
-         (live poll)    (full simulator)    (grid search + WFA)
-              │              │                    │
-              └──────────────┴────────────────────┘
-                                   ↓
-                        knowledge_base/production_config.json
-                        data/night_results/YYYY-MM-DD/report.md
+              ┌────────────────┴────────────────┐
+              │                                 │
+         night_shift (grid search)         paper_trader (live)
+         fast sim (~30K combos)            real-time Binance
+              │                                 │
+              ▼                                 ▼
+    ┌─────────────────┐                 data/paper_trading/
+    │ validate_       │                   state.json
+    │ night_shift.py  │
+    │ (full sim bridge)│
+    └────────┬────────┘
+             │
+             ▼
+    FutureBlindSimulator (fees + slippage)
+             │
+             ▼
+    data/night_results/YYYY-MM-DD/report.md
 ```
 
 ### Key Files
 
-- **`backtesting/future_blind_simulator.py`** — `TradingStrategy` ABC, `FutureBlindSimulator`, `TradeSignal`, `Trade`, `SimulationResult`. The ABC requires implementing `async analyze(data, current_time) -> Optional[TradeSignal]`. Applies 0.1% fees, 10bps slippage, max 20% position size.
-
-- **`scripts/run_backtest_r2.py`** — Production `MultiTFStrategy` class + `timeframe_signal()` helper (exported and used by paper_trader). Score-based entry (0–1.0 range) from multi-TF trend alignment (0.4), mean reversion/RSI (0.3), momentum (0.15), Bollinger Bands (0.15), volume bonus (+0.1).
-
-- **`scripts/per_symbol_optimizer.py`** — Fast indicator-based simulation. Exports `compute_indicators()`, `simulate_trades()`, `compute_metrics()`, `_compute_score()`. Used by night_shift for speed. Computes all indicators (RSI, BB, ATR, ADX, momentum) as DataFrame columns.
-
-- **`scripts/night_shift.py`** — Overnight optimization. Expanding-window WFA (non-overlapping folds), coarse grid search (~30K combos), fine refinement, Darwinian evolution. Three-layer overfitting detection (IS-OOS gap, consistency, fragility). Generates structured morning reports.
-
-- **`scripts/paper_trader.py`** — Live paper trader. Polls Binance 1h candles every 60s, runs the same score logic as the backtest. ADX regime filter (only enter when ADX > 25). State persists to `data/paper_trading/state.json`. Has per-symbol params (SOL uses night-shift-optimized config, others use production defaults).
-
-- **`scripts/validate_night_shift.py`** — Bridges the two evaluation paths: takes night shift candidates (fast indicator sim) and validates them through the full `FutureBlindSimulator` (with fees/slippage).
-
-- **`agents/historical_data_collector.py`** — `DataWindow` class that feeds OHLCV data to the simulator.
-
-- **`knowledge_base/production_config.json`** — Single source of truth for active config, WFA results, symbols, regime filter settings.
-
-- **`knowledge_base_schema.py`** — Data structures: `StrategyGenome`, `KnowledgeBase` for saving/loading strategies.
+| File | Purpose |
+|------|---------|
+| `scripts/night_shift.py` | Main pipeline: grid search → WFA → Darwinian → report → validation → discrepancy check |
+| `scripts/per_symbol_optimizer.py` | Fast simulator: `compute_indicators()`, `simulate_trades()`, `compute_metrics()`, `_compute_score()` |
+| `scripts/paper_trader.py` | Live paper trader: polls Binance, ADX filter, per-symbol configs |
+| `scripts/validate_night_shift.py` | Bridges fast sim → full sim for candidate validation |
+| `scripts/run_backtest_r2.py` | Production `MultiTFStrategy` class + `timeframe_signal()` helper |
+| `scripts/evaluator_calibration.py` | Compares fast vs full sim on random configs, outputs calibration report |
+| `scripts/discrepancy_detector.py` | Post-night-shift check, flags symbols where fast/full sim disagree |
+| `scripts/night_config.json` | Night shift configuration (symbols, folds, experiments, thresholds) |
+| `backtesting/future_blind_simulator.py` | `FutureBlindSimulator`: 0.1% fees, 10bps slippage, max 20% position |
+| `agents/historical_data_collector.py` | `DataWindow` class feeding data to full simulator |
 
 ### Validation Pipeline
 
-1. **Backtest** on 365d data → must show positive PnL, PF > 1.0
-2. **Walk-Forward Analysis** — 47 rolling 30-day windows, 7-day step (fixed params, no per-fold optimization)
-3. **ADX Regime Filter** — only enter when ADX > 25 (reduces variance 29%, +31.7% PnL)
-4. **Night Shift** — expanding-window WFA + grid search + overfitting detection
-5. **Simulator Validation** — confirm edge survives fees + slippage in FutureBlindSimulator
+1. **Night shift fast sim** — coarse grid (~30K combos) → fine refinement → Darwinian evolution
+2. **Three-layer overfitting detection** — IS-OOS gap, OOS consistency, parameter fragility
+3. **Full-sim validation** — top candidates through FutureBlindSimulator (fees + slippage)
+4. **Discrepancy detection** — compare fast/full sim rankings, flag divergent symbols
+5. **Paper trading** — live market validation with real Binance data
 
 ### Active Symbols
 
-- BTC/USDT, ETH/USDT, SOL/USDT, BNB/USDT
-- XRP/USDT was dropped (net negative across all WFA folds)
+BTC/USDT, ETH/USDT, SOL/USDT, BNB/USDT. XRP was dropped (net negative across all WFA folds).
 
-### Production Strategy Parameters
+### Strategy Parameters
 
-| Param | Default | SOL (night-shift optimized) |
-|-------|---------|---------------------------|
+| Param | Production | SOL Optimized |
+|-------|-----------|--------------|
 | signal_threshold | 0.40 | 0.35 |
 | take_profit_atr | 6.0 | 4.0 |
 | stop_loss_atr | 2.5 | 1.25 |
@@ -103,7 +117,7 @@ Binance → download_ohlcv.py → data/ohlcv/{SYMBOL}_1h.parquet
 | trailing_stop_atr | 1.0 | 0.70 |
 | score_flip_delay_hrs | 2 | 1 |
 
-### Full-Sim Validation Results (2026-04-05, fees + slippage)
+### Full-Sim Validation Results (2026-04-05)
 
 | Symbol | Production PnL | Optimized PnL | Consistency | Trades |
 |--------|---------------|--------------|-------------|--------|
@@ -112,42 +126,60 @@ Binance → download_ohlcv.py → data/ohlcv/{SYMBOL}_1h.parquet
 | ETH | +48.1% | — | 78% | 155 |
 | BTC | +17.5% | — | 67% | 153 |
 
-### Key Design Decisions
+## Critical: Fast Sim Calibration
 
-- **Fast sim must match full sim exactly** — the fast sim (`per_symbol_optimizer`) approximates the full sim (`FutureBlindSimulator`). Critical invariants:
-  - **ATR = std(returns, 20h) × price** — NOT True Range. Using wrong ATR caused 1.6x wider stops and rejected profitable configs.
-  - **MR condition uses daily trend only** — `rsi < 35 and daily_bullish`, NOT all-3-TF alignment.
-  - **Sharpe uses actual trade frequency** — `sqrt(n_trades / total_hours × 8760)`, not assume 1 trade/hour.
-- **Median OOS Sharpe** (not mean) for aggregate metrics — prevents single-fold outliers from dominating.
-- **Per-fold Sharpe winsorized at ±100** — with few trades, Sharpe can go to ±8000+ via annualization.
-- **Fragility is a penalty, not a hard rejection** — formula: `survivor *= 1/(1+fragility)`.
-- **Self-correction modules**: `evaluator_calibration.py` and `discrepancy_detector.py` run after each night shift to catch fast/full sim divergence.
+The fast simulator (`per_symbol_optimizer`) is used for the 30K-combo grid search. It MUST match the full simulator exactly. Three invariants were discovered the hard way:
 
-### Self-Correction Architecture (Phase 3)
+1. **ATR formula**: `std(returns, 20h) × price` — NOT True Range. Wrong ATR made stops 1.6x wider, causing BTC to show -16% instead of +3%.
+2. **MR entry condition**: `rsi < 35 and daily_trend == bullish` — NOT `bull_count >= min_alignment`. The fast sim was requiring all 3 TFs bullish (much rarer).
+3. **Sharpe annualization**: `sqrt(n_trades / total_hours × 8760)` — NOT `sqrt(24 × 365)`. The old formula assumed 1 trade/hour (actual is ~0.01), overstating Sharpe by ~10x.
 
-Three independent modules, all testable without LLM:
-1. **`scripts/evaluator_calibration.py`** — compares fast vs full sim on random configs, maintains correction table
-2. **`scripts/discrepancy_detector.py`** — post-night-shift check, flags symbols where evaluation is unreliable, skips Darwinian for persistently flagged symbols
-3. **`scripts/night_shift.py` Phase 8** — runs discrepancy detection automatically after validation
+If you change anything in `_compute_score()` or `simulate_trades()`, run `evaluator_calibration.py` with a small full-sim sample to verify the fast sim still agrees directionally.
 
-## Data
+## Night Shift Pipeline Phases
 
-- `data/ohlcv/{SYMBOL}_{TF}.parquet` — Binance OHLCV, 1h/4h/1d timeframes, ~365 days
-- `data/night_results/YYYY-MM-DD/report.md` — morning reports from night shift
-- `data/paper_trading/state.json` — paper trader state (survives restarts)
+1. **Phase 1: Data** — load cached parquet (Binance geo-blocked on GitHub, data is committed to repo)
+2. **Phase 2: WFA Folds** — expanding-window, non-overlapping, 9 folds × 36-day test windows
+3. **Phase 2b: Production Baseline** — evaluate current config as reference
+4. **Phase 3: Coarse Grid** — ~30K parameter combinations per symbol
+5. **Phase 3b: Fine Refinement** — top 100 per symbol on all folds
+6. **Phase 4: Darwinian Evolution** — 5 generations, mutate best candidates
+7. **Phase 4b: BB Mean Reversion** — separate strategy grid search (Bollinger Band bounce)
+8. **Phase 4c: Custom Experiments** — configurable param sweeps from `night_config.json`
+9. **Phase 5: Regime Analysis** — ADX, volatility percentile, correlations
+10. **Phase 6: Morning Report** — markdown + JSON report with top candidates and action items
+11. **Phase 7: Auto-Validation** — top 3 candidates through full FutureBlindSimulator
+12. **Phase 8: Discrepancy Detection** — compare fast/full sim, flag divergent symbols
+
+## Self-Correction Architecture
+
+Three independent modules (no LLM needed):
+
+1. **`evaluator_calibration.py`** — runs on N random configs, measures sign agreement and PnL correlation between fast and full sim
+2. **`discrepancy_detector.py`** — post-night-shift, tracks consecutive flags per symbol, skips Darwinian after 2 consecutive bad nights
+3. **Phase 8 in night_shift.py** — calls discrepancy detector automatically
+
+Output: `data/calibration/` and `data/discrepancies/`
 
 ## CI/CD
 
-- **Night shift**: GitHub Actions cron at 14:00 UTC (midnight AEST), commits results to repo
-- **Tests**: `pytest` on push to master, Python 3.9–3.11, flake8 linting
-- **Workflow files**: `.github/workflows/night_shift.yml`, `.github/workflows/python-tests.yml`
+- **Night shift**: GitHub Actions cron at 14:00 UTC (midnight AEST), also supports `workflow_dispatch`
+- **Binance is geo-blocked on GitHub runners** — OHLCV data lives in repo under `data/ohlcv/`, `fetch_fresh_data` defaults to `false`
+- **Data refresh**: run `download_ohlcv.py` locally, commit updated parquets, push before midnight
+- **Workflow**: `.github/workflows/night_shift.yml` (300 min timeout, Python 3.12)
+- **Dependencies in CI**: `pandas numpy ccxt pyarrow redis`
 
-## Autonomous Agent Workflow
+## GitHub Access
 
-The `AGENT_PROMPT.md` file describes the workflow for an AI research agent:
-1. Read the framework (TradingStrategy ABC, existing MultiTFStrategy)
-2. Implement a new strategy in `scripts/strategies/research_{name}.py`
-3. Backtest on 365d data across all symbols
-4. Walk-forward validate if initial results are positive
-5. Commit findings (even failures) with clear messages
-6. Never push to remote, only commit locally on `gnhf/strategy-research` branch
+- **Remote**: `git@github.com:tradewife/fractal-swarm.git` (SSH)
+- **PAT stored**: `~/.config/gh/config.yml` (for `workflow_dispatch` triggers)
+- **Trigger manually**: `curl -X POST -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/tradewife/fractal-swarm/actions/workflows/night_shift.yml/dispatches -d '{"ref":"master"}'`
+
+## Design Decisions
+
+- **Median OOS Sharpe** (not mean) — prevents single-fold outliers from dominating
+- **Per-fold Sharpe winsorized at ±100** — prevents tiny-sample Sharpe from going to ±8000+
+- **Fragility is a penalty, not rejection** — `survivor *= 1/(1+fragility)`
+- **Survivor Score**: `avg_oos_sharpe × consistency × (1-overfitting) × dd_factor × trade_factor × fragility_penalty`
+- **Paper trader has no Redis dependency** for runtime (only the full sim validation path needs it)
+- **Virtual environment**: `.venv/` with Python 3.13.3, ccxt 4.5.46, pandas 3.0.2

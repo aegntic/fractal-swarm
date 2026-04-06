@@ -1,185 +1,155 @@
-# 🌌 Quantum Swarm Trader
+# Fractal Swarm Trader
 
-## Version 1.0.0 Update (May 2025)
+Autonomous crypto strategy optimization system. Uses multi-timeframe confluence analysis on Binance data with walk-forward validation, overnight grid search optimization, and paper trading with real market data.
 
-- GitHub repository is now live at https://github.com/aegntic/fractal-swarm
-- CI/CD workflows implemented for automated testing and deployment
-- Docker support added for containerized deployment
-- Release v1.0.0 published with stable production features
-- Comprehensive documentation and setup guides included
-- Mobile PWA and Terminal UI interfaces fully functional
+**No real money trades.** Research/backtesting/paper-trading only.
 
-> Autonomous crypto trading system with fractal cloning technology. Grow $100 → $100K through swarm intelligence, MEV hunting, and cross-chain arbitrage.
+## What It Does
 
-[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://python.org)
-[![Solana](https://img.shields.io/badge/Solana-Agent%20Kit-purple.svg)](https://github.com/sendaifun/solana-agent-kit)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/aegntic/fractal-swarm)](https://github.com/aegntic/fractal-swarm)
-[![Issues](https://img.shields.io/github/issues/aegntic/fractal-swarm)](https://github.com/aegntic/fractal-swarm/issues)
-[![Forks](https://img.shields.io/github/forks/aegntic/fractal-swarm)](https://github.com/aegntic/fractal-swarm/network)
-[![Contributors](https://img.shields.io/github/contributors/aegntic/fractal-swarm)](https://github.com/aegntic/fractal-swarm/graphs/contributors)
+1. **Night Shift** — Every midnight AEST, GitHub Actions runs a fully autonomous optimization pipeline:
+   - Expanding-window walk-forward analysis (9 folds, 36-day test windows)
+   - Coarse grid search (~30K parameter combinations per symbol)
+   - Fine refinement + Darwinian evolutionary optimization
+   - Three-layer overfitting detection (IS-OOS gap, consistency, fragility)
+   - BB Mean Reversion strategy search
+   - Configurable param sweep experiments
+   - Full-simulator validation with fees + slippage
+   - Self-awareness: discrepancy detection between fast and full simulators
+   - Structured morning report committed to repo
 
-## 🚀 Features
+2. **Paper Trader** — Runs 24/7, polls Binance for real-time 1h candles, tracks hypothetical positions:
+   - ADX regime filter (only enter when ADX > 25)
+   - Per-symbol optimized configs (SOL uses night-shift-optimized params)
+   - State persistence across restarts
+   - Fee + slippage simulation
 
-- **🤖 Solana Agent Kit Integration** - 60+ automated DeFi actions
-- **🧬 Fractal Clone System** - Self-replicating agents with behavioral mutations
-- **⚡ Multi-Chain Support** - Solana, Ethereum, and MegaETH ready
-- **📱 Mobile Dashboard** - Progressive Web App for iOS/Android
-- **🖥️ Terminal UI** - Beautiful TUI for SSH management
-- **🔄 Real-Time Updates** - WebSocket live data streaming
+3. **Self-Correction Loop** — Three independent modules that detect when the evaluation layer is wrong:
+   - `evaluator_calibration.py` — compares fast sim vs full sim on random configs
+   - `discrepancy_detector.py` — flags symbols where fast/full sim disagree
+   - Phase 8 in night shift — runs discrepancy detection automatically
 
-## ⚡ Quick Start
+## Architecture
+
+```
+Binance ──► OHLCV parquet (data/ohlcv/)
+                │
+                ▼
+    ┌───────────┴───────────────────┐
+    │   per_symbol_optimizer.py    │  ◄── Fast sim (indicator-based)
+    │   compute_indicators()       │      Used by night_shift grid search
+    │   simulate_trades()          │
+    │   compute_metrics()          │
+    └───────────┬───────────────────┘
+                │
+    ┌───────────┼───────────────────┐
+    │           │                   │
+    ▼           ▼                   ▼
+paper_trader  night_shift    validate_night_shift
+  (live)     (grid search)   (full sim bridge)
+                │                   │
+                ▼                   ▼
+    ┌───────────────────────────────────┐
+    │    FutureBlindSimulator          │  ◄── Full sim (fees + slippage)
+    │    0.1% fees, 10bps slippage     │      Ground truth for validation
+    └───────────────────────────────────┘
+                │
+                ▼
+    data/night_results/YYYY-MM-DD/
+    ├── report.md          # morning report
+    ├── summary.json        # machine-readable results
+    └── full_sim_validation.json
+```
+
+## Project Structure
+
+```
+fractal-swarm/
+├── scripts/
+│   ├── night_shift.py              # Autonomous overnight optimizer (main pipeline)
+│   ├── paper_trader.py             # Live paper trading engine
+│   ├── per_symbol_optimizer.py     # Fast indicator-based simulator + scoring
+│   ├── validate_night_shift.py     # Full-sim validation bridge
+│   ├── evaluator_calibration.py    # Fast/full sim calibration module
+│   ├── discrepancy_detector.py     # Post-run discrepancy detection
+│   ├── run_backtest_r2.py          # Production MultiTFStrategy class
+│   ├── night_config.json           # Night shift configuration
+│   ├── download_ohlcv.py           # Binance data fetcher
+│   └── ...                         # WFA, regime filter, etc.
+├── backtesting/
+│   └── future_blind_simulator.py   # Fee-aware full simulator
+├── agents/
+│   └── historical_data_collector.py # DataWindow for full simulator
+├── data/
+│   ├── ohlcv/                      # Binance OHLCV parquet files (committed to repo)
+│   ├── night_results/               # Night shift output reports
+│   ├── paper_trading/               # Paper trader state + logs
+│   ├── calibration/                # Evaluator calibration reports
+│   └── discrepancies/              # Discrepancy detection history
+├── .github/workflows/
+│   └── night_shift.yml             # CI: runs night shift at 14:00 UTC
+└── tests/                          # Unit tests
+```
+
+## Commands
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-username/quantum-swarm-trader.git
-cd quantum-swarm-trader
+# Paper trading
+python scripts/paper_trader.py
 
-# Install dependencies
-pip install -r requirements.txt
+# Night shift (locally)
+python scripts/night_shift.py --skip-fetch
+python scripts/night_shift.py --symbols SOL/USDT
 
-# Copy environment variables
-cp .env.example .env
-# Edit .env with your Solana private key and API keys
+# Validate candidates through full simulator
+python scripts/validate_night_shift.py --production
 
-# Run the demo
-python3 example_usage.py
+# Calibration check
+python scripts/evaluator_calibration.py --samples 10
 
-# Start trading (choose one)
-python3 quantum_main.py start        # Full system
-python3 ui/tui_dashboard.py          # Terminal UI only
+# Discrepancy detection
+python scripts/discrepancy_detector.py
 ```
 
-## 🏗️ Architecture
+## Active Symbols & Performance
 
-```mermaid
-graph TD
-    A[Quantum Swarm Coordinator] --> B[Solana Swarm]
-    A --> C[Ethereum Swarm]
-    B --> D[Master Agent]
-    B --> E[Clone 1: MEV Hunter]
-    B --> F[Clone 2: Arbitrage]
-    B --> G[Clone N: Liquidity]
-    
-    D --> H[Jupiter DEX]
-    E --> I[Jito MEV]
-    F --> J[Cross-DEX Arb]
-    G --> K[Raydium LP]
-```
+All validated through FutureBlindSimulator (0.1% fees, 10bps slippage):
 
-## 🎯 Trading Strategy Phases
+| Symbol | Production PnL | Optimized PnL | Consistency | Trades |
+|--------|---------------|--------------|-------------|--------|
+| SOL/USDT | +36.9% | **+118.3%** | 78% | 429 |
+| BNB/USDT | +49.6% | — | 67% | 178 |
+| ETH/USDT | +48.1% | — | 78% | 155 |
+| BTC/USDT | +17.5% | — | 67% | 153 |
 
-### Phase 1: MICRO ($100 → $1K)
-- Jito MEV sandwich attacks
-- Jupiter aggregator arbitrage  
-- Failed transaction sniping
-- **Timeline**: 5-7 days
+## CI/CD
 
-### Phase 2: GROWTH ($1K → $10K)
-- Cross-chain arbitrage
-- Flash loan cascading
-- Whale wallet copying
-- **Timeline**: 20-30 days
+- **Night shift**: GitHub Actions at 14:00 UTC (midnight AEST), auto-commits results
+- **Tests**: pytest on push, flake8 linting
+- **Binance is geo-blocked on GitHub runners** — OHLCV data is committed to repo, `--skip-fetch` is default
 
-### Phase 3: SCALE ($10K → $100K)
-- Market making on DEXs
-- Yield optimization
-- Portfolio rebalancing
-- **Timeline**: 60-90 days
+## Fast Sim Calibration (Critical)
 
-## 🖥️ User Interfaces
+The fast simulator (`per_symbol_optimizer`) is used for the 30K-combo grid search. It MUST match the full simulator exactly on these three points:
 
-### Terminal UI (TUI)
-Perfect for server management via SSH:
-```bash
-python3 ui/tui_dashboard.py
-```
+1. **ATR = std(returns, 20h) × price** — NOT True Range. Wrong ATR = 1.6x wider stops = false negatives
+2. **MR entry uses daily trend only** — `rsi < 35 and daily_bullish`, NOT all-3-TF alignment
+3. **Sharpe uses actual trade frequency** — `sqrt(n_trades / total_hours × 8760)`, NOT 1 trade/hour
 
-### Web Dashboard
-Modern web interface with mobile support:
-```bash
-# Backend
-cd web/backend && uvicorn main:app
+See `CLAUDE.md` for the full design rationale.
 
-# Frontend
-cd web/frontend && npm install && npm run dev
-```
+## Roadmap
 
-Access at `http://localhost:3000` and install as PWA on mobile.
+- [x] Multi-TF confluence strategy with ADX regime filter
+- [x] Night shift autonomous optimizer (grid + WFA + overfitting detection)
+- [x] Paper trader with live Binance data
+- [x] Fast sim calibration (ATR, MR, Sharpe)
+- [x] Self-correction modules (calibration + discrepancy detection)
+- [x] Full-sim validation pipeline
+- [ ] Auto-deploy validated configs to paper trader
+- [ ] Per-regime configs (BTC works in trends, not ranges)
+- [ ] Multi-strategy portfolio (BB Mean Reversion + MultiTF confluence)
+- [ ] Solana migration (architecture port, not code port)
 
-## 📁 Project Structure
+## License
 
-```
-quantum-swarm-trader/
-├── quantum_main.py           # Main CLI entry point
-├── quantum_swarm_coordinator.py  # Core orchestrator
-├── solana_agent_wrapper.py   # Solana Agent Kit integration
-├── config_solana.py          # Solana configuration
-├── ui/
-│   └── tui_dashboard.py      # Terminal UI
-├── web/
-│   ├── backend/             # FastAPI backend
-│   └── frontend/            # Next.js PWA
-├── agents/                  # Trading agents
-├── strategies/              # Trading strategies
-└── docs/                    # Documentation
-```
-
-## 🔧 Configuration
-
-Edit `.env` file with your keys:
-```env
-# Solana
-SOLANA_PRIVATE_KEY=your_base58_key
-SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
-
-# APIs
-OPENAI_API_KEY=your_key  # For Solana Agent Kit
-HELIUS_API_KEY=your_key  # Better RPC (optional)
-
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
-```
-
-## 🛡️ Safety Features
-
-- **Stop Loss**: Automatic position closing
-- **Daily Limits**: Maximum drawdown protection
-- **Anti-Detection**: Behavioral randomization
-- **Emergency Stop**: One-click shutdown
-- **Atomic Locking**: Prevents clone collisions
-
-## 📚 Documentation
-
-- [Setup Guide](SETUP_GUIDE.md) - Detailed installation
-- [Solana Integration](README_SOLANA.md) - Solana-specific features
-- [UI Options](UI_COMPARISON.md) - Choosing the right interface
-- [Mobile Setup](MOBILE_SETUP.md) - Mobile app configuration
-- [Architecture](TECHNICAL_ARCHITECTURE.md) - System design
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing`)
-5. Open a Pull Request
-
-## ⚠️ Disclaimer
-
-This software is for educational purposes. Cryptocurrency trading carries substantial risk. Only trade with funds you can afford to lose. We are not responsible for any losses incurred.
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- [Solana Agent Kit](https://github.com/sendaifun/solana-agent-kit) - DeFi automation
-- [MegaETH](https://megaeth.com) - Real-time blockchain (coming soon)
-- [Textual](https://github.com/Textualize/textual) - Beautiful TUIs
-
----
-
-**Built with ❤️ for the DeFi community**
+MIT
