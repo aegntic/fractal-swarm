@@ -30,18 +30,30 @@
   },
   "experiments": [
     {
-      "name": "wider_trailing_stops",
+      "name": "tighter_stops_wider_tp",
       "type": "param_override",
       "params": {
-        "trailing_stop_atr": [0.5, 0.8, 1.0, 1.2, 1.5, 2.0]
-      }
+        "stop_loss_atr": [0.8, 1.0, 1.25],
+        "take_profit_atr": [3.5, 4.0, 5.0, 6.0]
+      },
+      "note": "test tighter stops + moderate TP — the pattern that worked for SOL"
     },
     {
-      "name": "longer_flip_delays",
+      "name": "shorter_holds",
       "type": "param_override",
       "params": {
-        "score_flip_delay_hrs": [0, 1, 2, 3, 4, 6]
-      }
+        "max_hold_hours": [24, 36, 48],
+        "time_decay_hours": [24, 36, 48]
+      },
+      "note": "test shorter holding periods — optimizer converged on 36-48h for SOL"
+    },
+    {
+      "name": "lower_threshold",
+      "type": "param_override",
+      "params": {
+        "signal_threshold": [0.30, 0.35, 0.40, 0.45]
+      },
+      "note": "sweep entry threshold — SOL showed 0.35 is better than production 0.40"
     }
   ],
   "output_dir": "data/night_results"
