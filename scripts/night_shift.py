@@ -1540,6 +1540,47 @@ def run_night_shift(
         json.dump(full_data, f, indent=2, default=str)
     log(f"  Full results: {json_path}")
 
+    # ── Phase 8: Discrepancy Detection (self-awareness) ──
+    log(f"\n── Phase 8: Discrepancy Detection ──")
+    try:
+        from scripts.discrepancy_detector import detect_discrepancies, update_flag_history, generate_recommendation
+        # Build fast sim results from all_results
+        fast_results = {}
+        for sym, results in all_results.items():
+            fast_results[sym] = [
+                {"oos_sharpe": r.oos_sharpe, "total_pnl": r.oos_pnl}
+                for r in sorted(results, key=lambda r: r.survivor_score, reverse=True)[:5]
+            ]
+        # Check for full sim validation
+        val_dir = os.path.join(RESULTS_DIR, datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+        val_json = os.path.join(val_dir, "full_sim_validation.json")
+        full_results = {}
+        if os.path.exists(val_json):
+            with open(val_json) as vf:
+                full_data = json.load(vf)
+            for entry in full_data:
+                full_results.setdefault(entry["symbol"], []).append(entry)
+
+        discrepancies = detect_discrepancies(fast_results, full_results)
+        history = update_flag_history(discrepancies)
+        recommendation, skip_symbols = generate_recommendation(discrepancies, history)
+
+        if skip_symbols:
+            log(f"  ⚠️  Symbols with persistent discrepancies: {skip_symbols}")
+            log(f"      Darwinian phase will be skipped for these symbols next run")
+        else:
+            log(f"  No persistent discrepancies detected — evaluator is trustworthy")
+
+        # Save discrepancy report
+        disc_dir = os.path.join(os.path.dirname(__file__), "..", "data", "discrepancies")
+        os.makedirs(disc_dir, exist_ok=True)
+        disc_path = os.path.join(disc_dir, f"discrepancy_{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.md")
+        with open(disc_path, "w") as df:
+            df.write(recommendation)
+        log(f"  Discrepancy report: {disc_path}")
+    except Exception as e:
+        log(f"  Discrepancy detection skipped: {e}")
+
 
 # ─── CLI ─────────────────────────────────────────────────────────────────────
 
