@@ -96,18 +96,39 @@ Binance → download_ohlcv.py → data/ohlcv/{SYMBOL}_1h.parquet
 | Param | Default | SOL (night-shift optimized) |
 |-------|---------|---------------------------|
 | signal_threshold | 0.40 | 0.35 |
-| take_profit_atr | 6.0 | 2.95 |
+| take_profit_atr | 6.0 | 4.0 |
 | stop_loss_atr | 2.5 | 1.25 |
-| max_hold_hours | 96 | 48 |
+| max_hold_hours | 96 | 36 |
+| time_decay_hours | 48 | 41 |
 | trailing_stop_atr | 1.0 | 0.70 |
-| score_flip_delay_hrs | 2 | 4 |
+| score_flip_delay_hrs | 2 | 1 |
+
+### Full-Sim Validation Results (2026-04-05, fees + slippage)
+
+| Symbol | Production PnL | Optimized PnL | Consistency | Trades |
+|--------|---------------|--------------|-------------|--------|
+| SOL | +36.9% | **+118.3%** | 78% | 429 |
+| BNB | +49.6% | — | 67% | 178 |
+| ETH | +48.1% | — | 78% | 155 |
+| BTC | +17.5% | — | 67% | 153 |
 
 ### Key Design Decisions
 
-- **Night shift uses two separate evaluation engines**: `per_symbol_optimizer` functions (fast, indicator-based, no fees) for the grid search, and `FutureBlindSimulator` (slower, fee-aware) for final validation. The validate script bridges these.
+- **Fast sim must match full sim exactly** — the fast sim (`per_symbol_optimizer`) approximates the full sim (`FutureBlindSimulator`). Critical invariants:
+  - **ATR = std(returns, 20h) × price** — NOT True Range. Using wrong ATR caused 1.6x wider stops and rejected profitable configs.
+  - **MR condition uses daily trend only** — `rsi < 35 and daily_bullish`, NOT all-3-TF alignment.
+  - **Sharpe uses actual trade frequency** — `sqrt(n_trades / total_hours × 8760)`, not assume 1 trade/hour.
 - **Median OOS Sharpe** (not mean) for aggregate metrics — prevents single-fold outliers from dominating.
 - **Per-fold Sharpe winsorized at ±100** — with few trades, Sharpe can go to ±8000+ via annualization.
 - **Fragility is a penalty, not a hard rejection** — formula: `survivor *= 1/(1+fragility)`.
+- **Self-correction modules**: `evaluator_calibration.py` and `discrepancy_detector.py` run after each night shift to catch fast/full sim divergence.
+
+### Self-Correction Architecture (Phase 3)
+
+Three independent modules, all testable without LLM:
+1. **`scripts/evaluator_calibration.py`** — compares fast vs full sim on random configs, maintains correction table
+2. **`scripts/discrepancy_detector.py`** — post-night-shift check, flags symbols where evaluation is unreliable, skips Darwinian for persistently flagged symbols
+3. **`scripts/night_shift.py` Phase 8** — runs discrepancy detection automatically after validation
 
 ## Data
 
