@@ -45,9 +45,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: data/ohlcv
-          key: ohlcv-${{ github.run_id }}
+          key: ohlcv-${{ runner.os }}-v1-${{ github.event.inputs.symbols || 'BTC/USDT,ETH/USDT,SOL/USDT,BNB/USDT' }}
           restore-keys: |
-            ohlcv-
+            ohlcv-${{ runner.os }}-v1-
 
       - name: Run Night Shift
         env:
