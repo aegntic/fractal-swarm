@@ -1,0 +1,13 @@
+# Optional extras - not required for core functionality
+# Uncomment the lines you need
+
+# MCP TradingView server
+# mcp>=1.0.0
+
+# Terminal UI dashboard
+# textual>=0.40.0
+# rich>=13.0.0
+
+# Browser automation (TradingView scraping)
+# playwright>=1.40.0
+# pyppeteer>=2.0.0

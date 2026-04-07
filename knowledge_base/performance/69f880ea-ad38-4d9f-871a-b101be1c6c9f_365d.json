@@ -1,0 +1,51 @@
+{
+  "strategy_id": "69f880ea-ad38-4d9f-871a-b101be1c6c9f",
+  "strategy_name": "wide_tp \u2014 Production Primary",
+  "config_key": "wide_tp",
+  "evaluation_period": {
+    "start": "2025-04-02",
+    "end": "2026-04-02",
+    "candles_per_symbol": 8760,
+    "timeframes": [
+      "1h",
+      "4h",
+      "1d"
+    ]
+  },
+  "total_trades": 499,
+  "win_rate": 0.33399999999999996,
+  "total_return": 0.4918,
+  "sharpe_ratio": 4.05,
+  "profit_factor": 2.2,
+  "max_drawdown": 0.2452,
+  "avg_hold_hours": 16.7,
+  "trades_per_day": 1.37,
+  "performance_by_asset": {
+    "BTC/USDT": {
+      "return_pct": 18.27,
+      "win_rate": 38.5,
+      "pf": 2.0
+    },
+    "ETH/USDT": {
+      "return_pct": -0.06,
+      "win_rate": 30.6,
+      "pf": 2.3
+    },
+    "SOL/USDT": {
+      "return_pct": 7.18,
+      "win_rate": 32.6,
+      "pf": 2.2
+    },
+    "BNB/USDT": {
+      "return_pct": 23.47,
+      "win_rate": 36.3,
+      "pf": 2.2
+    },
+    "XRP/USDT": {
+      "return_pct": 0.31,
+      "win_rate": 29.3,
+      "pf": 2.4
+    }
+  },
+  "saved_at": "2026-04-02T17:56:08.927021"
+}

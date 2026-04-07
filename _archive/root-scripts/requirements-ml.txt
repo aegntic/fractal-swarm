@@ -1,0 +1,4 @@
+# ML/AI dependencies - only install if using ML features
+torch>=2.2.0
+scikit-learn>=1.4.0
+# NOTE: tensorflow and transformers are NOT used by any code and have been removed

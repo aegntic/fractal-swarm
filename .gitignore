@@ -102,7 +102,9 @@ GITHUB_PAT
 setup_github_token.sh
 
 # Data files
-data/
+data/*
+!data/ohlcv/
+!data/ohlcv/**
 exports/
 backups/
 
@@ -113,4 +115,4 @@ Thumbs.db
 # Project specific
 /temp/
 /tmp/
-/cache/
+web/frontend/test-screenshots/

@@ -1,0 +1,51 @@
+{
+  "strategy_id": "5f0c9e75-11a3-4288-8779-1dcc344ff345",
+  "strategy_name": "tight_sl \u2014 Conservative Alternative",
+  "config_key": "tight_sl",
+  "evaluation_period": {
+    "start": "2025-04-02",
+    "end": "2026-04-02",
+    "candles_per_symbol": 8760,
+    "timeframes": [
+      "1h",
+      "4h",
+      "1d"
+    ]
+  },
+  "total_trades": 610,
+  "win_rate": 0.342,
+  "total_return": 0.27399999999999997,
+  "sharpe_ratio": 2.33,
+  "profit_factor": 2.1,
+  "max_drawdown": 0.2079,
+  "avg_hold_hours": 9.3,
+  "trades_per_day": 1.67,
+  "performance_by_asset": {
+    "BTC/USDT": {
+      "return_pct": 5.56,
+      "win_rate": 34.7,
+      "pf": 2.0
+    },
+    "ETH/USDT": {
+      "return_pct": -13.78,
+      "win_rate": 30.8,
+      "pf": 2.0
+    },
+    "SOL/USDT": {
+      "return_pct": 32.4,
+      "win_rate": 41.4,
+      "pf": 1.9
+    },
+    "BNB/USDT": {
+      "return_pct": 5.25,
+      "win_rate": 35.7,
+      "pf": 1.9
+    },
+    "XRP/USDT": {
+      "return_pct": -2.03,
+      "win_rate": 28.3,
+      "pf": 2.5
+    }
+  },
+  "saved_at": "2026-04-02T17:56:08.929492"
+}

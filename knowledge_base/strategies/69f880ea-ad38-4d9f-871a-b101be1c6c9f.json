@@ -1,0 +1,87 @@
+{
+  "id": "69f880ea-ad38-4d9f-871a-b101be1c6c9f",
+  "name": "wide_tp \u2014 Production Primary",
+  "generation": 1,
+  "parent_ids": [],
+  "timeframe_weights": {
+    "1h": 1.0,
+    "4h": 1.0,
+    "1d": 1.0
+  },
+  "indicators": {
+    "rsi": {
+      "period": 14,
+      "oversold": 30,
+      "overbought": 70
+    },
+    "sma": {
+      "periods": [
+        20,
+        80,
+        200
+      ]
+    },
+    "bollinger_bands": {
+      "period": 20,
+      "std": 2.0
+    },
+    "atr_proxy": {
+      "period": 20,
+      "method": "rolling_std_of_returns"
+    },
+    "volume_ratio": {
+      "period": 20
+    },
+    "momentum": {
+      "period": 80
+    }
+  },
+  "risk_params": {
+    "max_position_pct": 20,
+    "fee_rate_pct": 0.1,
+    "slippage_bps": 10,
+    "atr_stop_loss": 2.5,
+    "atr_take_profit": 6.0
+  },
+  "entry_conditions": {
+    "signal_threshold": 0.4,
+    "min_timeframe_alignment": 3,
+    "min_data_points": 200,
+    "signal_weights": {
+      "multi_tf_trend_alignment": 0.4,
+      "mean_reversion": 0.3,
+      "momentum_4h": 0.15,
+      "bollinger_band_position": 0.15,
+      "volume_confirmation_bonus": 0.1
+    }
+  },
+  "exit_conditions": {
+    "atr_take_profit": 6.0,
+    "atr_stop_loss": 2.5,
+    "max_hold_hours": 96,
+    "time_decay_hours": 48,
+    "score_flip_exit": true,
+    "mean_reversion_target": {
+      "exit_rsi": 55,
+      "entry_rsi_max": 35
+    }
+  },
+  "min_timeframe_alignment": 3,
+  "confluence_threshold": 0.4,
+  "preferred_assets": [
+    "BTC/USDT",
+    "ETH/USDT",
+    "SOL/USDT",
+    "BNB/USDT",
+    "XRP/USDT"
+  ],
+  "asset_correlations": {},
+  "mutations": [
+    {
+      "round": "R6",
+      "description": "Manually validated on 365d real Binance data",
+      "backtest_rounds": "R2\u2013R6",
+      "timestamp": "2026-04-02T17:56:08.926512"
+    }
+  ]
+}
